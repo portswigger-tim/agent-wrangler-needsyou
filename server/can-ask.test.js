@@ -32,10 +32,19 @@ test('an override wins in both directions, and null restores the default', () =>
 });
 
 test('the refusal names the spawner; a top-level session turned off gets the other variant', () => {
-  assert.match(refusalText({ spawnedBy: 'orch' }), /send_message \(to: "orch"\)/);
-  const off = refusalText({ spawnedBy: null });
-  assert.match(off, /turned off direct requests/);
-  assert.doesNotMatch(off, /send_message/);
+  assert.equal(
+    refusalText({ spawnedBy: 'orch' }),
+    'Refused: this session was launched by another session, so it cannot ask the human. '
+      + 'Next step: call send_message now (to: "orch") with your question, its options and your recommendation. '
+      + 'Do not call request_human_input again. The human will not see a question you write in chat.',
+  );
+  assert.equal(
+    refusalText({ spawnedBy: null }),
+    'Refused: the human has turned off direct requests from this session. '
+      + 'Next step: decide using your brief and sensible defaults, say in chat which default you chose, and carry on. '
+      + 'If you cannot proceed without the human, stop and explain in chat what you need. '
+      + 'Do not call request_human_input again.',
+  );
 });
 
 test('a refused request_human_input creates nothing and tells the caller who to ask', async () => {

@@ -50,6 +50,12 @@ The non-obvious decisions behind `server/tools/`, `server/answer.js`,
 - `canAsk`: a store override (`true`/`false`) wins. Otherwise a session with
   `spawnedBy` is refused. `spawnedBy` is always returned, so the refusal can
   name the spawner, or say the human turned direct requests off.
+- **The refusal is an order, not advice (0.1.1).** In the first spawned-worker
+  test, refused workers retried the call once and then asked the human in chat;
+  none mailed the spawner. The refusal now starts "Refused:" and gives one next
+  step ("call send_message now (to: …)"), says not to call the tool again, and
+  says the human won't see a question written in chat. `can-ask.test.js` pins
+  both variants word for word, and `scripts/dev-smoke.mjs` checks the next step.
 - Only `inbox-set-can-ask` changes an override, and only the human's browser
   sends it. No MCP tool reaches it.
 

@@ -8,13 +8,18 @@ export function canAsk(host, store, sessionId) {
   return { allowed: override ?? !spawnedBy, spawnedBy };
 }
 
-// What request_human_input tells a refused caller. Naming the spawner is the
-// point: the worker's next move is a send_message to exactly that card.
+// What request_human_input tells a refused caller. Live testing showed agents
+// read a polite refusal as advice, retried and then asked in chat, so each
+// variant is one explicit next step. Naming the spawner is the point: the
+// worker's next move is a send_message to exactly that card.
 export function refusalText({ spawnedBy }) {
   if (spawnedBy) {
-    return 'You can\'t ask the human directly: this session was launched by another session. '
-      + `Send your question to it with send_message (to: "${spawnedBy}"), including the context and options it needs.`;
+    return 'Refused: this session was launched by another session, so it cannot ask the human. '
+      + `Next step: call send_message now (to: "${spawnedBy}") with your question, its options and your recommendation. `
+      + 'Do not call request_human_input again. The human will not see a question you write in chat.';
   }
-  return 'The human has turned off direct requests from this session. '
-    + 'Decide using your brief and sensible defaults, or stop and explain in chat what you need.';
+  return 'Refused: the human has turned off direct requests from this session. '
+    + 'Next step: decide using your brief and sensible defaults, say in chat which default you chose, and carry on. '
+    + 'If you cannot proceed without the human, stop and explain in chat what you need. '
+    + 'Do not call request_human_input again.';
 }

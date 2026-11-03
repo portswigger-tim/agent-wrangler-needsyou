@@ -176,7 +176,10 @@ expect(inbox4.unread === unreadBefore - 1, `inbox-mark-read drops unread ${unrea
 // 5. Who may ask: the spawned worker is refused, then allowed by the human.
 const refused = await callTool(WORKER, 'request_human_input', { kind: 'question', title: 'Smoke: from the worker' });
 console.log('worker refusal:', toolText(refused));
-expect(refused.result?.isError && toolText(refused).includes(`"${HUMAN}"`), 'a spawned caller is refused, naming its spawner');
+expect(
+  refused.result?.isError && toolText(refused).includes(`call send_message now (to: "${HUMAN}")`) && toolText(refused).includes('Do not call request_human_input again'),
+  'a spawned caller is refused with the send_message next step, naming its spawner',
+);
 send({ type: 'inbox-set-can-ask', sessionId: WORKER, allowed: true });
 await inboxWhere((ib) => ib.sessions?.[WORKER]?.canAsk === true, 'canAsk true for the worker');
 const allowed = await callTool(WORKER, 'request_human_input', { kind: 'question', title: 'Smoke: from the worker' });

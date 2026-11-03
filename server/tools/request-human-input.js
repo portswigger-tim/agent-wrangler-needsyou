@@ -24,7 +24,8 @@ export const DESCRIPTION =
   + 'chat. Asking again with the same dedupe_key updates your earlier request instead of adding one. '
   + 'If blocking (the default), end your turn right after the call: the answer arrives as a message '
   + 'starting "[Needs you]". It acts for the session you are running in; there is no session '
-  + 'parameter. A session launched by another session is refused and told to ask that session. '
+  + 'parameter. A session launched by another session is refused: then call send_message to that '
+  + 'session with your question instead, and never retry this tool or ask the human in chat. '
   + 'See the `inbox` skill.';
 
 const optionSchema = z.object({
