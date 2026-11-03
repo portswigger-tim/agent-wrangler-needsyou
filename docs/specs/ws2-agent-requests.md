@@ -103,8 +103,8 @@ that missed the delivered text (compaction, restart) recover its answer.
 - `inbox-retry {id}`: only for `answered` items whose delivery is `failed`. At most 5 attempts in
   total; after that it throws "delivery keeps failing — open the session".
 
-`deliverAnswer` follows contracts §6. `host.deliver` wakes a dormant card and refuses an archived
-one. Store its error string verbatim (≤500 chars).
+`deliverAnswer` follows contracts §6: success is `mode: 'live' | 'dormant'`, failure is
+`mode: 'error'`, never `{ ok }`. `host.deliver` wakes a dormant card and refuses an archived one. Store its error string verbatim (≤500 chars).
 
 ## Skill (`skills/inbox/SKILL.md` + `WRANGLER.md`)
 

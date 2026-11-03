@@ -31,7 +31,7 @@ export default {
   id: 'needsyou', label: 'Needs you', description, help, author: 'PortSwigger', defaultEnabled: true,
   engines: { wranglerApi: '^1.57.0' }, dir,
   requires: [...as above],
-  stores: { inbox: (bag) => new InboxStore({ file: inboxFile(bag), getSettings: () => bag.settings }) }, // WS-1
+  stores: { inbox: (bag) => new InboxStore({ file: inboxFile(bag), getSettings: () => bag.settings?.all?.() ?? {}, log: bag.log }) }, // WS-1: bag.settings is a frozen { get, all } view
   tools: inboxTools,           // server/tools/index.js (WS-2)
   handlers: inboxHandlers,     // server/handlers/index.js (WS-1): [...read, ...answer, ...observe]
   graph: inboxGraph,           // server/graph.js (WS-1)
@@ -177,9 +177,13 @@ entries, strings ≤500 chars.
 
 ## 6. Answer delivery (`server/answer.js`, WS-2)
 
-`deliverAnswer(host, store, id) -> Promise<Item>` calls `host.deliver(item.sessionId, text)`.
-- `{ ok: true }` (or a non-error result): `setDelivery('delivered')`.
-- Otherwise: `setDelivery('failed', error)`. It never throws for a delivery failure.
+`deliverAnswer(host, store, id) -> Promise<Item>` calls `host.deliver(item.sessionId, text)`. The
+real `host.deliver` doesn't throw for a refusal (confirmed by WS-1 against agent-wrangler main):
+- it resolves `{ mode: 'live' | 'dormant' }` on success → `setDelivery('delivered')`
+- it resolves `{ mode: 'error', error }` on failure, including archived or unknown cards →
+  `setDelivery('failed', error)`
+- if it does throw anyway, treat that as `failed` with the message. `deliverAnswer` never throws
+  for a delivery failure.
 
 Text format:
 

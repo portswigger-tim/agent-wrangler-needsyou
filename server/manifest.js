@@ -17,7 +17,7 @@ export const dir = fileURLToPath(new URL('..', import.meta.url));
 // No `default` on a def (the loader refuses one): an unset value reads as
 // undefined and each consumer applies the fallback in the table in §7.
 export const SETTINGS = [
-  { key: 'notifyToasts', type: 'toggle', label: 'Notify on new mail', help: 'Show a notification when a new item needs you. On unless turned off.' },
+  { key: 'notifyToasts', type: 'toggle', label: 'Notify when a session is stopped', help: 'Show a notification when a session is blocked or waiting on your decision. On unless turned off.' },
   { key: 'includeTransientApiErrors', type: 'toggle', label: 'Include API errors', help: 'Also raise an item when a session waits on a retryable API error. Off unless turned on.' },
   { key: 'maxOpenPerSession', type: 'number', label: 'Open requests per session', help: 'How many unanswered requests one session may have at once (1–20, default 5).', min: 1, max: 20, step: 1 },
   { key: 'retentionDays', type: 'number', label: 'Keep resolved items (days)', help: 'Resolved items are removed after this many days (1–90, default 7).', min: 1, max: 90, step: 1 },
