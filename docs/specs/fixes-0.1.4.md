@@ -86,6 +86,19 @@ human asked for one fixed label with a tick, like core's **Auto-fix PR checks âœ
 **Acceptance:** `inbox-can-ask` tests for all four states (label, tick or not, value sent). e2e:
 step 07 still clicks "Let it ask you directly", and shot 08 shows the ticked state.
 
+## C6: Every request is also said in chat (done on main, e0b826f)
+
+**Problem:** the human chats with agents, and should not have to switch between chat and the queue
+to see a question. The skill said "Keep the chat text too" only for end-of-turn decisions. The
+nudge, the tool description and the tool's reply did not say it at all.
+**Change:** the tool's success reply (read at the moment of asking), its description, the skill (a
+new rule, "Always say it in chat too") and the nudge all say the same thing:
+- write the question, its options and your recommendation in your reply too
+- if the human answers in chat, call `withdraw_human_request`
+
+**Acceptance:** `tools.test.js` checks the reply text for blocking and non-blocking requests.
+Re-run the compliance eval (`docs/notes/testing.md`) to see whether agents follow it.
+
 ## How it runs
 
 - One UI worker on branch `fixes-0-1-4` in a worktree. It owns `public/**`, their tests,
