@@ -3,11 +3,14 @@
 // would: discovery (id/dir-name check + the leaf-import scan), validateManifest,
 // loadExtensions (name collisions, quarantine reasons), buildHostApi
 // (capability names + engines.wranglerApi against the served version), the
-// store factory with the bag the wrangler hands it, and the graph keys.
+// store factory with the bag the wrangler hands it, the graph keys, and the
+// extension's MCP tools served through the wrangler's REAL MCP server
+// (buildMcpServer + the SDK's in-memory client). That last step is where this
+// repo's zod 4 schemas meet the wrangler's MCP SDK, which sits beside zod 3.
 //
 //   AW_REPO=<agent-wrangler checkout> node scripts/validate-manifest.mjs
 //
-// AW_REPO must have `semver` resolvable (npm ci --ignore-scripts there).
+// AW_REPO must have its node_modules (npm ci --ignore-scripts there).
 // Exits 1 on any refusal, 2 if AW_REPO is not a loader checkout.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -21,7 +24,9 @@ if (!repo || !fs.existsSync(path.join(repo, 'server/extensions/index.js'))) {
 }
 // The loader's config-store reads DATA_DIR at import, and so does this
 // extension's store: point both somewhere harmless.
-process.env.AW_DATA_DIR ||= fs.mkdtempSync(path.join(os.tmpdir(), 'needsyou-validate-'));
+// Removed at the end when this script made it.
+const madeDataDir = !process.env.AW_DATA_DIR && fs.mkdtempSync(path.join(os.tmpdir(), 'needsyou-validate-'));
+if (madeDataDir) process.env.AW_DATA_DIR = madeDataDir;
 const mod = (rel) => import(pathToFileURL(path.join(repo, rel)).href);
 const { validateManifest, loadExtensions, assertGraphKeys, CAPABILITIES } = await mod('server/extensions/index.js');
 const { discoverExternal } = await mod('server/extensions/external.js');
@@ -85,5 +90,105 @@ try {
   else ok(`graph keys [${Object.keys(contribution).join(', ')}], inbox.items []`);
 } catch (e) { fail(e.message); }
 
+// 6. What the extension must register, by name: a rename or a dropped entry
+//    loads cleanly and is only missed at runtime, so pin the lists here.
+const same = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+const want = {
+  tools: ['request_human_input', 'withdraw_human_request', 'list_my_human_requests'],
+  handlers: ['inbox-mark-read', 'inbox-dismiss', 'inbox-answer', 'inbox-retry', 'inbox-set-can-ask', 'inbox-observe'],
+  settings: ['notifyToasts', 'includeTransientApiErrors', 'maxOpenPerSession', 'retentionDays', 'autoResolveOnWorking'],
+  sweeps: ['retention', 'expiry', 'retention-boot'],
+};
+const got = {
+  tools: loaded.tools.filter((t) => t.extId === manifest.id).map((t) => t.name),
+  handlers: entry?.handlerTypes ?? [],
+  settings: (manifest.settings || []).map((s) => s.key),
+  sweeps: loaded.sweeps.map((s) => s.id),
+};
+for (const [what, names] of Object.entries(want)) {
+  if (same(got[what], names)) ok(`${what}: ${names.join(', ')}`);
+  else fail(`${what} are [${got[what].join(', ')}], expected [${names.join(', ')}]`);
+}
+if (same(entry?.skills ?? [], ['inbox']) && fs.existsSync(path.join(root, 'skills/inbox/SKILL.md'))) ok('skill inbox (skills/inbox/SKILL.md)');
+else fail(`skills are [${entry?.skills}], expected [inbox] with skills/inbox/SKILL.md`);
+const client = loaded.clientManifest.find((c) => c.id === manifest.id) ?? loaded.clientManifest[0];
+const assets = [[client?.client, manifest.client], [client?.styles, manifest.styles]];
+for (const [served, rel] of assets) {
+  if (served === `/ext/${manifest.id}/${path.basename(rel)}` && fs.existsSync(path.join(root, rel))) ok(`client asset ${served} → ${rel}`);
+  else fail(`client asset ${served} does not serve ${rel}`);
+}
+
+// 7. The tools through the wrangler's own MCP server, over an in-memory
+//    transport: tools/list, one valid call, one invalid one, and a spawned
+//    caller's refusal. A zod mismatch shows up as an empty or missing
+//    inputSchema in the listing, or as a throw at registerTool.
+try {
+  const { buildMcpServer } = await mod('server/mcp/server.js');
+  const sdk = (rel) => mod(`node_modules/@modelcontextprotocol/sdk/dist/esm/${rel}`);
+  const { Client } = await sdk('client/index.js');
+  const { InMemoryTransport } = await sdk('inMemory.js');
+  const entries = {
+    'validate-human': { agent: 'claude', name: 'Human-launched', createdAt: Date.now() },
+    'validate-worker': { agent: 'claude', name: 'Worker', spawnedBy: 'validate-human', createdAt: Date.now() },
+  };
+  const core = {
+    sessionManager: { activeEntries: () => Object.entries(entries).map(([sessionId, e]) => ({ ...e, sessionId })), entryFor: (id) => entries[id] ?? null },
+    taskStore: { taskFor: () => null, snapshot: () => ({ tasks: [] }) },
+  };
+  const host = buildHostApi({
+    id: manifest.id, requires: manifest.requires, range: manifest.engines?.wranglerApi, core,
+    rebuild: () => {}, broadcast: () => {}, deliver: async () => ({ mode: 'live' }), archiveSession: () => {},
+    stores: { inbox: store }, settingDefs: manifest.settings, readSettings: () => ({}), log: () => {},
+  });
+  const deps = { hostApiFor: (extId) => (extId === manifest.id ? host : undefined) };
+  const connect = async (caller) => {
+    const server = buildMcpServer(deps, caller, { tools: loaded.tools });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    const c = new Client({ name: 'validate-manifest', version: '0.0.0' });
+    await Promise.all([server.connect(a), c.connect(b)]);
+    return { c, close: () => Promise.all([c.close(), server.close()]) };
+  };
+
+  const human = await connect('validate-human');
+  const { tools } = await human.c.listTools();
+  const listed = tools.filter((t) => want.tools.includes(t.name));
+  const props = Object.fromEntries(listed.map((t) => [t.name, Object.keys(t.inputSchema?.properties ?? {})]));
+  if (listed.length === 3) ok(`MCP tools/list: ${listed.map((t) => `${t.name}(${props[t.name].join(', ')})`).join('; ')}`);
+  else fail(`MCP tools/list shows ${listed.length} of the 3 tools`);
+  const rhi = listed.find((t) => t.name === 'request_human_input');
+  if (!rhi || !same(rhi.inputSchema?.required ?? [], ['kind', 'title']) || rhi.inputSchema?.properties?.kind?.enum?.length !== 4) {
+    fail(`request_human_input's listed schema lost its shape: ${JSON.stringify(rhi?.inputSchema)?.slice(0, 300)}`);
+  } else ok('request_human_input schema: required [kind, title], kind enum of 4');
+
+  const good = await human.c.callTool({ name: 'request_human_input', arguments: { kind: 'decision', title: 'Validate: pick one', options: [{ label: 'Yes' }, { label: 'No' }] } });
+  const id = good.structuredContent?.id;
+  if (!good.isError && /^ibx_/.test(id ?? '') && store.get(id)?.state === 'open') ok(`MCP tools/call request_human_input (valid) → ${JSON.stringify(good.structuredContent)}`);
+  else fail(`a valid request_human_input failed: ${JSON.stringify(good).slice(0, 300)}`);
+
+  // Refused by the SDK's schema check (zod 3 parsing a zod 4 shape) or by the
+  // tool's own validation; either way an error result and no new item.
+  const before = store.snapshot().length;
+  let bad;
+  try { bad = await human.c.callTool({ name: 'request_human_input', arguments: { kind: 'gossip', title: '' } }); } catch (e) { bad = { isError: true, thrown: e.message }; }
+  if (bad.isError && store.snapshot().length === before) ok(`MCP tools/call request_human_input (invalid) refused: ${(bad.thrown ?? bad.content?.[0]?.text ?? '').split('\n')[0].slice(0, 160)}`);
+  else fail(`an invalid request_human_input was accepted: ${JSON.stringify(bad).slice(0, 300)}`);
+
+  const mine = await human.c.callTool({ name: 'list_my_human_requests', arguments: {} });
+  if (mine.structuredContent?.requests?.some((r) => r.id === id)) ok('MCP tools/call list_my_human_requests lists it');
+  else fail(`list_my_human_requests: ${JSON.stringify(mine).slice(0, 300)}`);
+  const gone = await human.c.callTool({ name: 'withdraw_human_request', arguments: { id } });
+  if (!gone.isError && store.get(id)?.resolvedReason === 'withdrawn') ok('MCP tools/call withdraw_human_request closes it');
+  else fail(`withdraw_human_request: ${JSON.stringify(gone).slice(0, 300)}`);
+  await human.close();
+
+  const worker = await connect('validate-worker');
+  const refused = await worker.c.callTool({ name: 'request_human_input', arguments: { kind: 'question', title: 'Validate: from a worker' } });
+  const text = refused.content?.[0]?.text ?? '';
+  if (refused.isError && text.includes('"validate-human"')) ok('MCP tools/call from a spawned session is refused, naming its spawner');
+  else fail(`a spawned caller was not refused with its spawner: ${JSON.stringify(refused).slice(0, 300)}`);
+  await worker.close();
+} catch (e) { fail(`real MCP server: ${e.stack || e.message}`); }
+
 fs.rmSync(extDir, { recursive: true, force: true });
+if (madeDataDir) fs.rmSync(madeDataDir, { recursive: true, force: true });
 process.exit(failed ? 1 : 0);
