@@ -51,7 +51,8 @@ hook payloads, the settings view, `host.deliver` results) is in `AGENTS.md`,
   has no item.
 - Each entry has the effective `canAsk` and `canAskOverride` (`true`, `false`,
   or `null` when the human hasn't chosen). The card menu needs the override to
-  show "default" honestly and to offer **Use default**.
+  know which way a click flips (0.1.4: to the other state, or `null` to clear
+  an override).
 - The contributor runs on every rebuild (about 4 s) and must not throw, so
   every host read is guarded and a failed lookup reads as an absent session.
 

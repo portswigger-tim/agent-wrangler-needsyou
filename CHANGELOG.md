@@ -1,6 +1,23 @@
 # Changelog
 
-## 0.1.3 (unreleased)
+## 0.1.4 (unreleased)
+
+From the human's last round of ideas (`docs/specs/fixes-0.1.4.md`).
+
+### Changed
+
+- **Close the detail (C1).** An × in the detail's top right, and `Esc`, close
+  it. It stays closed until you pick an item, press `n`, or a new item arrives.
+- **Open · Closed · All (C2)** replace "Recently resolved". Closed lists the
+  most recently closed first.
+- **"3 open" (C3)** in the header, matching the Open filter.
+- **Session names (C4).** The session link shows the card's name, not a short
+  id.
+- **Card menu (C5).** One tick toggle: **Let it ask you directly ✓**.
+- **Said in chat too (C6).** Agents are told to write every request in their
+  reply as well, and to withdraw it if you answer in chat.
+
+## 0.1.3
 
 ### Changed
 

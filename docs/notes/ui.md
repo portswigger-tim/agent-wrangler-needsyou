@@ -11,14 +11,19 @@ The non-obvious decisions behind `public/index.js`, `public/inbox-*.js`,
   blocking requests, then non-blocking ones, then failed deliveries.
 - An urgent request shows an **Urgent** tag on its row and in its detail, and
   the card pill takes the warning colour while its session has one open.
-- At desktop width (two panes), the view selects the first item when nothing
-  is selected (0.1.2, F5). The auto-picked item is not marked read until you
-  act on it. At phone width the list shows first.
+- At desktop width (two panes), the view selects the first item of the list on
+  screen when nothing is selected (0.1.2, F5). The auto-picked item is not
+  marked read until you act on it. At phone width the list shows first.
+- The detail's × (two panes only) and `Esc` clear the selection (0.1.4, C1).
+  Auto-select then stays off until the human picks a row, presses `n`, or an
+  item id never seen before arrives open. A failed delivery of an item already
+  seen does not count as new. At one pane there is no ×, and `Esc` is Back.
+- The header count reads "N open" and is hidden at 0 (0.1.4, C3).
 - There is no **Next** button (0.1.3, at the human's request). With the first
   item auto-selected and answering or dismissing moving on by itself, it added
   nothing on a desktop. The `n` key stays.
 - An answer still being delivered leaves the queue and shows as "sending"
-  under **Recently resolved**. A failed delivery comes back as the last tier of
+  under **Closed**. A failed delivery comes back as the last tier of
   the queue, with **Retry**.
 - "Unread" decides only the row dot, never the order or the badge.
 
@@ -99,10 +104,21 @@ control router (a refused answer, for example) are the board's own and stay.
 - Status items have a **Show terminal here** toggle (`api.mountSession`).
 - Colour comes only from the board's CSS variables, so both themes work.
 
-## Recently resolved (read-only view)
+## Filters and the read-only view
 
-- Strip rows use the queue row's layout (kind, title, session, then the reason
-  and "Nm ago" where a queue row has its dot, tag and age).
+- **Open (n) · Closed (n) · All** (0.1.4, C2) replaced the "Recently resolved"
+  strip. One listbox (`.ibx-queue`) shows the chosen list, and its aria-label
+  follows the filter. The choice is kept in `localStorage` (`needsyou.filter`),
+  inside try/catch, and an unknown value falls back to Open.
+- **Closed** is sorted by when each item closed, newest first (the human's
+  rule): `closedAt` is `updatedAt`, which the store sets on close and never
+  changes afterwards, or `answer.at` for an answer still sending. **All** is
+  Open then Closed, with a hairline between them.
+- Closed rows show the reason and "closed 5m ago" (or "sending"). At 375 px
+  the reason is hidden in rows to keep room for the title.
+- `n` always means the top **open** item: from Closed or All it switches to
+  Open. Selecting an item the current filter hides (a card pill while Closed
+  shows) switches to a filter that has it.
 - Selecting one opens it in the detail pane read-only (0.1.1, F15): kind,
   title, session and task, the body (sanitised markdown), the options with the
   chosen one marked, the note, the `waitingFor` text for a status item, and how
@@ -113,8 +129,8 @@ control router (a refused answer, for example) are the board's own and stay.
   nothing there.
 - "Read-only" is anything resolved, or answered and still sending. A failed
   delivery is back in the queue with **Retry**.
-- `j`/`k` walk the queue and then the strip, but only while the strip is
-  expanded. A resolved item stays selected across ticks. A queued item that
+- `j`/`k` walk the list on screen. A resolved item stays selected across
+  ticks. A queued item that
   leaves the queue still moves the selection on, as before.
 
 ## Card menu and spawner names
@@ -122,12 +138,17 @@ control router (a refused answer, for example) are the board's own and stay.
 - A spawner's name comes from `graph.inbox.sessions`, which lists every
   listed session's spawner (0.1.1). It falls back to `graph.sessions`, then
   to a short id.
-- The card menu has one "can ask" item on every listed card (0.1.2, F7), with
-  the silhouette icon. Core's `.context-menu-item svg` sizes it to 15 px, like
-  its own items. The label names the state the click moves to, and the hint
-  names the current state (the table is in `docs/specs/ws4-inbox-ui.md`).
-  Setting an override always gives the non-default state, so clearing it
-  (`allowed: null`) is the way back, and there is no **Use default** item.
+- The card menu has one "can ask" item on every listed card, with the
+  silhouette icon (core sizes it to 15 px, like its own items). Since 0.1.4
+  (C5) it is a tick toggle at the human's request: the fixed label **Let it
+  ask you directly**, with a text `✓` hint when the effective `canAsk` is true.
+  Core draws its own ticks with an SVG, which an extension's `hint` cannot
+  carry (it is escaped text), so this tick is a little lighter. The click
+  flips the state: spawned → `true`, spawned and allowed → `null`, top-level
+  → `false`, top-level and refused → `null`. Clearing the override is always
+  the way back, so there is no **Use default**.
+- The session link falls back to the core card's `label` (then `name`, then
+  the short id), clipped at 60 characters (0.1.4, C4).
 
 ## Test fixtures
 

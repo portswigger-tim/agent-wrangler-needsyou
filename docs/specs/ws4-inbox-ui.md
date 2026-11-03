@@ -43,7 +43,8 @@ The badge counts **open items** (contracts §4 `open`), not unread ones, and is 
 **Layout:** two panes. On widths under 900 px it collapses to list → detail with a Back button.
 
 *List pane*, top to bottom:
-1. Header "Needs you" and the count "N waiting". The `n` key selects the top item and focuses
+1. Header "Needs you" and the count "N open" (0.1.4; was "N waiting"), and the filters
+   **Open (n) · Closed (n) · All** (0.1.4). The `n` key selects the top item and focuses
    its primary control. After an answer or dismiss the view moves on to the next item. (0.1.3: the
    **Next** button that also did this was removed at the human's request; the key stays.)
 2. **The queue**, ordered by cost of waiting. `queueOrder(items)` is a pure, exported and tested
@@ -57,8 +58,8 @@ The badge counts **open items** (contracts §4 `open`), not unread ones, and is 
    A row shows: a kind icon and label (`Blocked`, `Decision`, `Approval`, `Question`, `Action`),
    the title (ellipsis), session name · task name, and a **waiting-for** age ("waiting 12m").
    Unread items carry a small dot, but unread doesn't change the order.
-3. **Recently resolved** strip below the queue, collapsed by default: resolved items from the last
-   24 h, with the reason. Labels: `delivered` "answered", `withdrawn` "withdrawn by agent",
+3. **Closed** filter (0.1.4; it replaced a collapsed "Recently resolved" strip): resolved items
+   from the last 24 h, newest close first, with the reason. Labels: `delivered` "answered", `withdrawn` "withdrawn by agent",
    `answered-elsewhere` "answered in the session", `status-cleared` "resolved in the session",
    `dismissed` "dismissed", `session-archived` "session archived", `expired` "expired". It is there for
    reassurance, not as an archive. An item resolving while it is selected fades out, and selection
@@ -68,16 +69,16 @@ The badge counts **open items** (contracts §4 `open`), not unread ones, and is 
    `graph.inbox.sessions`, so the human has context.
 
 **"Can ask the human" card action** (`public/inbox-can-ask.js`, a `card.action` value slot).
-Since 0.1.2 (F7) it is one item on every card listed in `graph.inbox.sessions`, with the
-person-silhouette icon. The label names the state it moves to, and the hint names the current
-state:
+Since 0.1.4 (C5) it is one tick toggle on every card listed in `graph.inbox.sessions`, with the
+person-silhouette icon and the fixed label **Let it ask you directly**. The hint is a text `✓` when
+the effective `canAsk` is true. A click sends:
 
-| Session | Override | Label | Hint | Click sends `allowed` |
-| --- | --- | --- | --- | --- |
-| spawned | none | Let it ask you directly | asks its orchestrator | `true` |
-| spawned | allowed | Send its questions to the orchestrator | asks you directly | `null` |
-| top-level | none | Stop it asking you directly | asks you directly | `false` |
-| top-level | refused | Let it ask you directly | blocked by you | `null` |
+| Session | Override | Ticked | Click sends `allowed` |
+| --- | --- | --- | --- |
+| spawned | none | no | `true` |
+| spawned | allowed | yes | `null` |
+| top-level | none | yes | `false` |
+| top-level | refused | no | `null` |
 
 There is no separate "Use default" item: clearing the override (`null`) is always the way back.
 

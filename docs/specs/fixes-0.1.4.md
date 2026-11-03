@@ -1,6 +1,6 @@
 # Changes for 0.1.4
 
-Status: **draft** · Source: the human's last round of ideas (2026-11-03), from a live board
+Status: **done**: merged on 2026-11-03. All of C1–C6 are in. · Source: the human's last round of ideas (2026-11-03), from a live board
 screenshot: an empty queue beside a closed item's detail, which could not be put away. UI only: no
 contract or server change. Every change goes through the verification gate.
 

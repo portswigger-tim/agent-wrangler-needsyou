@@ -100,10 +100,18 @@ Use these keys in the **Needs you** view:
 Sometimes a session cannot accept your answer, for example because it is
 archived. Then the item stays in the list and shows **Retry**.
 
-Items that closed in the last 24 hours are under **Recently resolved**, below
-the list. Select one to see what was asked, what you chose and how it closed.
-You cannot change a closed item. When **Recently resolved** is open, `j` and
-`k` move into it too.
+Use the buttons at the top of the list to choose what it shows:
+
+- **Open** shows what needs you now. This is where the list starts.
+- **Closed** shows items that closed in the last 24 hours, with the most
+  recently closed first.
+- **All** shows open items, then closed items.
+
+Select a closed item to see what was asked, what you chose and how it closed.
+You cannot change a closed item.
+
+To close the item on the right, select **×** in its top-right corner or press
+`Esc`.
 
 ## Which sessions can ask you
 
@@ -114,16 +122,9 @@ helper sessions from filling your list. When one tries, the tool refuses and
 gives it the name of the session that started it. The helper then sends its
 question to that session instead.
 
-You can change this for any session from the menu on its card. The menu shows
-one item. Its name says what it will do, and the grey text beside it says what
-the session does now:
-
-- **Let it ask you directly** lets a helper session ask you, or lets a session
-  that you stopped ask you again.
-- **Send its questions to the orchestrator** returns a helper session to its
-  usual setting.
-- **Stop it asking you directly** stops a session that you started from asking
-  you.
+You can change this for any session from the menu on its card. Select
+**Let it ask you directly** to turn it on or off. A tick (✓) beside it means
+the session can ask you now.
 
 An agent cannot change this setting.
 
