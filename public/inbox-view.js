@@ -1,8 +1,9 @@
 // The "Needs you" view: a triage queue (list pane) and the selected item
 // (detail pane), worked one item at a time: answering or dismissing moves on,
-// and `n` jumps to the top item. A row from the
-// "Recently resolved" strip opens read-only: what was asked, what was chosen,
-// how and when it closed, with no buttons but the header's session link.
+// and `n` jumps to the top item. The list shows Open, Closed or All (0.1.4,
+// C2). A closed row opens read-only: what was asked, what was chosen, how and
+// when it closed, with no buttons but the header's session link. At two panes
+// an X (or Escape) closes the detail (C1).
 //
 // Two rules hold everywhere in this file:
 // - Agent-written text (titles, option labels, notes, waitingFor, session and
@@ -15,9 +16,9 @@
 import { ICONS, kindIcon } from './icons.js';
 import { patchList, setText, setAttr, setClass } from './inbox-dom.js';
 import {
-  queueOrder, recentItems, itemLabel, itemIconKey, isAlarm, isUrgent, guidanceFor, terminalText, resolvedLabel,
-  waitingLabel, ageLabel, sessionMeta, sessionName, spawnedByLabel, inboxOf, isUnread, isFailed, nextAfter,
-  answerPayload, hasDone, donePayload, deliveryProblem,
+  queueOrder, closedOrder, closedAt, closedLabel, FILTERS, itemLabel, itemIconKey, isAlarm, isUrgent, guidanceFor,
+  terminalText, resolvedLabel, waitingLabel, ageLabel, sessionMeta, sessionName, spawnedByLabel, inboxOf, isUnread,
+  isFailed, nextAfter, answerPayload, hasDone, donePayload, deliveryProblem,
 } from './inbox-model.js';
 
 export { queueOrder } from './inbox-model.js';
@@ -26,19 +27,28 @@ const LEAVE_MS = 250;
 const SEND_TIMEOUT_MS = 10000;
 const DISMISS_WARNING = 'The agent will not be told.';
 const TWO_PANES_PX = 900; // styles.css: the narrow layout is a container query below this
+const FILTER_KEY = 'needsyou.filter';
+
+const EMPTY_TEXT = {
+  open: 'Nothing needs you right now.',
+  closed: 'Nothing closed in the last 24 hours.',
+  all: 'Nothing in the last 24 hours.',
+};
+const LIST_LABEL = { open: 'Open items', closed: 'Closed items', all: 'All items' };
 
 const SHELL_HTML = `
   <section class="ibx-list-pane" aria-label="Needs you queue">
     <header class="ibx-head">
       <h2 class="ibx-heading">Needs you</h2>
-      <span class="ibx-count"></span>
+      <span class="ibx-count" hidden></span>
+      <div class="ibx-filters" role="group" aria-label="Show">
+        <button type="button" class="ibx-filter" data-filter="open" aria-pressed="true">Open</button>
+        <button type="button" class="ibx-filter" data-filter="closed" aria-pressed="false">Closed</button>
+        <button type="button" class="ibx-filter" data-filter="all" aria-pressed="false">All</button>
+      </div>
     </header>
-    <div class="ibx-queue" role="listbox" aria-label="Waiting on you"></div>
+    <div class="ibx-queue" role="listbox" tabindex="-1" aria-label="Open items"></div>
     <p class="ibx-empty" role="status">Nothing needs you right now.</p>
-    <details class="ibx-recent">
-      <summary class="ibx-recent-summary"></summary>
-      <div class="ibx-recent-list" role="listbox" aria-label="Recently resolved"></div>
-    </details>
   </section>
   <section class="ibx-detail-pane" aria-label="Selected item">
     <button type="button" class="ibx-btn ibx-back">${ICONS.back}<span>Back</span></button>
@@ -49,15 +59,31 @@ const SHELL_HTML = `
 // Resolved, or answered and still on its way: nothing left to do but look.
 const isReadOnly = (item) => item.state !== 'open' && !isFailed(item);
 
+// The remembered filter (per browser). Storage can be missing or throw (a
+// private window, blocked site data): then it is Open, and nothing is kept.
+function loadFilter(storage) {
+  try {
+    const v = storage?.getItem(FILTER_KEY);
+    return FILTERS.includes(v) ? v : 'open';
+  } catch { return 'open'; }
+}
+
+function saveFilter(storage, filter) {
+  try { storage?.setItem(FILTER_KEY, filter); } catch { /* not remembered, still shown */ }
+}
+
 function isTyping(target) {
   return Boolean(target?.closest?.('textarea, input, select, [contenteditable=""], [contenteditable="true"]'));
 }
 
 export function createInboxView(el, api, {
   now = () => Date.now(), leaveMs = LEAVE_MS, schedule = setTimeout, cancel = clearTimeout,
-  twoPanes = null,
+  twoPanes = null, storage,
 } = {}) {
   const doc = el.ownerDocument;
+  if (storage === undefined) {
+    try { storage = doc.defaultView?.localStorage ?? null; } catch { storage = null; }
+  }
   const root = doc.createElement('div');
   root.className = 'ibx-root';
   root.tabIndex = -1;
@@ -69,22 +95,25 @@ export function createInboxView(el, api, {
   const countEl = q('.ibx-count');
   const queueEl = q('.ibx-queue');
   const emptyEl = q('.ibx-empty');
-  const recentEl = q('.ibx-recent');
-  const recentSummary = q('.ibx-recent-summary');
-  const recentList = q('.ibx-recent-list');
+  const filterBtns = [...root.querySelectorAll('.ibx-filter')];
   const detailEl = q('.ibx-detail');
   const terminalEl = q('.ibx-terminal');
   const backBtn = q('.ibx-back');
 
   let graph = null;
   let items = [];
-  let order = [];
-  let recent = [];
+  let order = []; // the open queue
+  let closed = []; // closed items, newest close first
   let prevOrderIds = [];
+  let filter = loadFilter(storage);
   let selectedId = null;
-  // The selection is the queue's first item, picked for a two-pane layout,
+  // The selection is the list's first item, picked for a two-pane layout,
   // not one the human opened: it is not marked read, and `n` starts on it.
   let autoPicked = false;
+  // The human closed the detail (C1): no auto-pick until they pick a row,
+  // press n, or a new item arrives.
+  let userClosed = false;
+  const seenIds = new Set();
   let pendingId = null;
   let detailOpen = false;
   let wantFocus = false;
@@ -97,10 +126,11 @@ export function createInboxView(el, api, {
   const sending = new Map(); // id -> { stamp, timer }
 
   const byId = (id) => items.find((i) => i.id === id) || null;
-  const selected = () => (selectedId ? order.find((i) => i.id === selectedId) || recent.find((i) => i.id === selectedId) || null : null);
-  const selectable = (id) => order.some((i) => i.id === id) || recent.some((i) => i.id === id);
-  // What j/k walk: the queue, then the strip when it is expanded.
-  const navList = () => (recentEl.open ? [...order, ...recent] : order);
+  const selected = () => (selectedId ? order.find((i) => i.id === selectedId) || closed.find((i) => i.id === selectedId) || null : null);
+  const selectable = (id) => order.some((i) => i.id === id) || closed.some((i) => i.id === id);
+  // The list showing, which is also what j/k walk.
+  const shown = () => (filter === 'closed' ? closed : filter === 'all' ? [...order, ...closed] : order);
+  const isShown = (id) => shown().some((i) => i.id === id);
   const visible = () => el.isConnected && !el.closest('.hidden');
 
   // ── queue rows ──────────────────────────────────────────────────────────
@@ -111,7 +141,7 @@ export function createInboxView(el, api, {
     row.innerHTML = `
       <span class="ibx-row-kind"><span class="ibx-row-icon"></span><span class="ibx-row-kind-label"></span></span>
       <span class="ibx-row-main"><span class="ibx-row-title"></span><span class="ibx-row-meta"></span></span>
-      <span class="ibx-row-side"><span class="ibx-dot" aria-hidden="true"></span><span class="ibx-tag ibx-tag-urgent"></span><span class="ibx-tag ibx-tag-failed"></span><span class="ibx-row-age"></span></span>`;
+      <span class="ibx-row-side"><span class="ibx-dot" aria-hidden="true"></span><span class="ibx-tag ibx-tag-urgent"></span><span class="ibx-tag ibx-tag-failed"></span><span class="ibx-closed-reason"></span><span class="ibx-row-age"></span></span>`;
     return row;
   }
 
@@ -128,10 +158,13 @@ export function createInboxView(el, api, {
       item.id === selectedId ? 'ibx-selected' : ''].filter(Boolean).join(' ');
   }
 
+  // One row layout for both: an open row has its dot, tags and waiting age; a
+  // closed row, toned down, has how it closed and "closed 5m ago" (C2).
   function updateRow(row, item) {
     const failed = isFailed(item);
     const unread = isUnread(item);
-    setClass(row, rowClass(item, [unread ? 'ibx-unread' : '', failed ? 'ibx-failed' : '']));
+    const done = isReadOnly(item);
+    setClass(row, rowClass(item, [unread ? 'ibx-unread' : '', failed ? 'ibx-failed' : '', done ? 'ibx-closed-row' : '']));
     row.dataset.id = item.id;
     setAttr(row, 'aria-selected', String(item.id === selectedId));
     updateKind(row, item);
@@ -139,36 +172,12 @@ export function createInboxView(el, api, {
     setText(title, item.title);
     setAttr(title, 'title', item.title);
     setText(row.querySelector('.ibx-row-meta'), [sessionMeta(graph, item), spawnedByLabel(graph, item)].filter(Boolean).join(' · '));
-    setText(row.querySelector('.ibx-tag-urgent'), isUrgent(item) && !failed ? 'Urgent' : '');
+    setText(row.querySelector('.ibx-tag-urgent'), isUrgent(item) && !failed && !done ? 'Urgent' : '');
     setText(row.querySelector('.ibx-tag-failed'), failed ? 'Not delivered' : '');
-    setText(row.querySelector('.ibx-row-age'), waitingLabel(item, now()));
+    // "sending" is the age itself, so it is not said twice.
+    setText(row.querySelector('.ibx-closed-reason'), done && item.state === 'resolved' ? resolvedLabel(item) : '');
+    setText(row.querySelector('.ibx-row-age'), done ? closedLabel(item, now()) : waitingLabel(item, now()));
     setAttr(row.querySelector('.ibx-dot'), 'title', unread ? 'Unread' : null);
-  }
-
-  // Strip rows share the queue row's layout (kind, title, session, then the
-  // reason and age where the queue shows its dot, tag and age).
-  function createRecentRow() {
-    const row = doc.createElement('div');
-    row.setAttribute('role', 'option');
-    row.tabIndex = -1;
-    row.innerHTML = `
-      <span class="ibx-row-kind"><span class="ibx-row-icon"></span><span class="ibx-row-kind-label"></span></span>
-      <span class="ibx-row-main"><span class="ibx-row-title"></span><span class="ibx-row-meta"></span></span>
-      <span class="ibx-row-side"><span class="ibx-recent-reason"></span><span class="ibx-row-age"></span></span>`;
-    return row;
-  }
-
-  function updateRecentRow(row, item) {
-    setClass(row, rowClass(item, ['ibx-recent-row']));
-    row.dataset.id = item.id;
-    setAttr(row, 'aria-selected', String(item.id === selectedId));
-    updateKind(row, item);
-    const title = row.querySelector('.ibx-row-title');
-    setText(title, item.title);
-    setAttr(title, 'title', item.title);
-    setText(row.querySelector('.ibx-row-meta'), [sessionMeta(graph, item), spawnedByLabel(graph, item)].filter(Boolean).join(' · '));
-    setText(row.querySelector('.ibx-recent-reason'), resolvedLabel(item));
-    setText(row.querySelector('.ibx-row-age'), `${ageLabel(item.updatedAt, now())} ago`);
   }
 
   // The head's age: how long a live item has waited, or when a read-only one
@@ -195,7 +204,7 @@ export function createInboxView(el, api, {
   function renderDetailKey(item) {
     if (!item) return 'none';
     const s = inboxOf(graph)?.sessions?.[item.sessionId];
-    return JSON.stringify([item.id, item.kind, item.source, item.title, item.body, item.options, item.allowFreeText,
+    return JSON.stringify([isTwoPanes(), item.id, item.kind, item.source, item.title, item.body, item.options, item.allowFreeText,
       item.state, item.resolvedReason, item.answer, item.status, item.blocking, item.urgency, s?.name, s?.taskName, sessionMeta(graph, item),
       isFailed(item) ? deliveryProblem(graph, item).text : null,
       spawnedByLabel(graph, item), choices.get(item.id) ?? null, confirming === item.id, sending.has(item.id), terminal?.id === item.id]);
@@ -209,7 +218,8 @@ export function createInboxView(el, api, {
       const age = detailEl.querySelector('.ibx-d-age');
       if (age && item) setText(age, headAge(item));
       const closedAge = detailEl.querySelector('.ibx-d-closed-age');
-      if (closedAge && item) setText(closedAge, `${ageLabel(item.updatedAt, now())} ago`);
+      if (closedAge && item) setText(closedAge, `${ageLabel(closedAt(item), now())} ago`);
+      if (!item) setText(detailEl.querySelector('.ibx-d-placeholder'), placeholderText());
       return;
     }
     detailKey = key;
@@ -219,7 +229,7 @@ export function createInboxView(el, api, {
     const caret = hadFocus && active.tagName === 'TEXTAREA' ? [active.selectionStart, active.selectionEnd] : null;
     detailEl.replaceChildren();
     if (!item) {
-      detailEl.appendChild(make('p', 'ibx-d-placeholder', order.length ? 'Select an item, or press n for the top one.' : ''));
+      detailEl.appendChild(make('p', 'ibx-d-placeholder', placeholderText()));
       return;
     }
     detailEl.appendChild(detailHead(item));
@@ -245,6 +255,10 @@ export function createInboxView(el, api, {
   // A status item: what to do (one sentence per cause), then what the
   // terminal said, once. reconcile stores it as escaped markdown, so it goes
   // through the board's sanitiser like any other body.
+  function placeholderText() {
+    return shown().length ? 'Select an item, or press n for the top one.' : '';
+  }
+
   function statusText(item) {
     if (!isReadOnly(item)) detailEl.appendChild(make('p', 'ibx-d-guidance', guidanceFor(item)));
     const said = terminalText(item);
@@ -266,6 +280,14 @@ export function createInboxView(el, api, {
     kind.appendChild(make('span', null, itemLabel(item)));
     kinds.appendChild(kind);
     if (isUrgent(item) && !isReadOnly(item)) kinds.appendChild(make('span', 'ibx-tag ibx-tag-urgent', 'Urgent'));
+    // Two panes only: at one pane, Back does this (C1).
+    if (isTwoPanes()) {
+      const x = button('ibx-close', '', () => closeDetail(), { title: 'Close (Esc)' });
+      x.innerHTML = ICONS.close;
+      x.setAttribute('aria-label', 'Close');
+      x.dataset.ibxRole = 'close';
+      kinds.appendChild(x);
+    }
     head.appendChild(kinds);
     head.appendChild(make('h3', 'ibx-d-title', item.title));
     const meta = make('div', 'ibx-d-meta');
@@ -431,11 +453,12 @@ export function createInboxView(el, api, {
     const how = item.state === 'answered' ? 'Answer sending' : `Closed: ${resolvedLabel(item)}`;
     closed.appendChild(make('span', 'ibx-d-closed-reason', how));
     closed.appendChild(doc.createTextNode(' · '));
-    const at = make('time', 'ibx-d-closed-at', new Date(item.updatedAt).toLocaleString());
-    at.setAttribute('datetime', new Date(item.updatedAt).toISOString());
+    const when = closedAt(item);
+    const at = make('time', 'ibx-d-closed-at', new Date(when).toLocaleString());
+    at.setAttribute('datetime', new Date(when).toISOString());
     closed.appendChild(at);
     closed.appendChild(doc.createTextNode(' ('));
-    closed.appendChild(make('span', 'ibx-d-closed-age', `${ageLabel(item.updatedAt, now())} ago`));
+    closed.appendChild(make('span', 'ibx-d-closed-age', `${ageLabel(when, now())} ago`));
     closed.appendChild(doc.createTextNode(')'));
     wrap.appendChild(closed);
     return wrap;
@@ -562,12 +585,38 @@ export function createInboxView(el, api, {
     autoPicked = false;
   }
 
-  // Two panes and nothing selected: show the first item rather than a blank
-  // pane (F5). Focus stays put and nothing is marked read.
+  // Two panes and nothing selected: show the list's first item rather than a
+  // blank pane (F5), unless the human closed the detail (C1). Focus stays put
+  // and nothing is marked read.
   function autoPick() {
-    if (selectedId || !order.length || !isTwoPanes()) return;
-    setSelected(order[0].id);
+    const list = shown();
+    if (selectedId || userClosed || !list.length || !isTwoPanes()) return;
+    setSelected(list[0].id);
     autoPicked = true;
+  }
+
+  // The X, or Escape at two panes: nothing selected, and no auto-pick after.
+  // Focus goes to the row that was selected, else the list.
+  function closeDetail() {
+    const was = selectedId;
+    setSelected(null);
+    userClosed = true;
+    detailOpen = false;
+    render();
+    const row = was ? findRow(queueEl, was) : null;
+    (row || queueEl).focus({ preventScroll: true });
+  }
+
+  function setFilter(next, { keepSelection = false } = {}) {
+    if (!FILTERS.includes(next)) return;
+    if (next !== filter) {
+      filter = next;
+      saveFilter(storage, filter);
+    }
+    if (!keepSelection && selectedId && !isShown(selectedId)) {
+      setSelected(null);
+      detailOpen = false;
+    }
   }
 
   function select(id, { open = true, focus = false } = {}) {
@@ -577,7 +626,10 @@ export function createInboxView(el, api, {
       return false;
     }
     pendingId = null;
+    // A row the list isn't showing (a card pill, say): show a list that has it.
+    if (!isShown(id)) setFilter(order.some((i) => i.id === id) ? 'open' : 'closed', { keepSelection: true });
     setSelected(id);
+    userClosed = false;
     autoPicked = false; // the human picked it, even if it was already shown
     if (open) detailOpen = true;
     render();
@@ -588,22 +640,25 @@ export function createInboxView(el, api, {
     return true;
   }
 
+  // The top OPEN item, whatever the filter: from Closed or All it shows Open.
   function next() {
     if (!order.length) return;
+    if (filter !== 'open') setFilter('open');
     const top = order[0].id;
     const target = selectedId === top && !autoPicked && order.length > 1 ? order[1].id : top;
     select(target, { open: true, focus: true });
   }
 
   function move(delta) {
-    const list = navList();
+    const list = shown();
     if (!list.length) return;
     const at = list.findIndex((i) => i.id === selectedId);
     const to = at < 0 ? (delta > 0 ? 0 : list.length - 1) : Math.max(0, Math.min(list.length - 1, at + delta));
     const id = list[to].id;
     setSelected(id);
+    userClosed = false;
     render();
-    (findRow(queueEl, id) || findRow(recentList, id))?.focus({ preventScroll: false });
+    findRow(queueEl, id)?.focus({ preventScroll: false });
   }
 
   function chooseByNumber(n) {
@@ -621,10 +676,9 @@ export function createInboxView(el, api, {
     const row = e.target.closest('.ibx-row');
     if (row && !row.classList.contains('ibx-leaving')) select(row.dataset.id, { open: true });
   });
-  recentList.addEventListener('click', (e) => {
-    const row = e.target.closest('.ibx-row');
-    if (row) select(row.dataset.id, { open: true });
-  });
+  for (const b of filterBtns) {
+    b.addEventListener('click', () => { setFilter(b.dataset.filter); render(); });
+  }
   backBtn.addEventListener('click', () => {
     detailOpen = false;
     render();
@@ -639,7 +693,7 @@ export function createInboxView(el, api, {
     if (e.key === 'Escape') {
       if (confirming) { confirming = null; renderDetail(); focusRole('dismiss'); consume(); return; }
       if (isTyping(e.target)) { root.focus({ preventScroll: true }); consume(); return; }
-      if (detailOpen) { backBtn.click(); consume(); }
+      if (isTwoPanes()) { if (selectedId) { closeDetail(); consume(); } } else if (detailOpen) { backBtn.click(); consume(); }
       return;
     }
     if (isTyping(e.target)) return;
@@ -669,7 +723,7 @@ export function createInboxView(el, api, {
   if (host && Observer) {
     watcher = new Observer(() => {
       if (!visible()) return;
-      if (!selectedId && order.length) render();
+      if (!selectedId && shown().length) render();
       markRead();
       if (wantFocus) { wantFocus = false; focusPrimary(); return; }
       const active = doc.activeElement;
@@ -682,12 +736,19 @@ export function createInboxView(el, api, {
   function render() {
     const n = order.length;
     autoPick();
-    setText(countEl, n ? `${n} waiting` : '');
-    emptyEl.hidden = n > 0;
-    patchList(queueEl, order, { key: (i) => i.id, create: createRow, update: updateRow, leaveMs, schedule });
-    recentEl.hidden = recent.length === 0;
-    setText(recentSummary, `Recently resolved (${recent.length})`);
-    patchList(recentList, recent, { key: (i) => i.id, create: createRecentRow, update: updateRecentRow });
+    setText(countEl, n ? `${n} open` : '');
+    countEl.hidden = n === 0;
+    const counts = { open: n, closed: closed.length };
+    for (const b of filterBtns) {
+      const f = b.dataset.filter;
+      setText(b, f === 'all' ? 'All' : `${f === 'open' ? 'Open' : 'Closed'} (${counts[f]})`);
+      setAttr(b, 'aria-pressed', String(f === filter));
+    }
+    const list = shown();
+    setAttr(queueEl, 'aria-label', LIST_LABEL[filter]);
+    setText(emptyEl, EMPTY_TEXT[filter]);
+    emptyEl.hidden = list.length > 0;
+    patchList(queueEl, list, { key: (i) => i.id, create: createRow, update: updateRow, leaveMs, schedule });
     renderDetail();
     markRead();
   }
@@ -697,16 +758,19 @@ export function createInboxView(el, api, {
     items = inboxOf(graph)?.items ?? [];
     const hadFocus = root.contains(doc.activeElement);
     order = queueOrder(items);
-    recent = recentItems(items);
+    closed = closedOrder(items);
+    // A new open item lifts the human's "closed" (C1).
+    if (order.some((i) => !seenIds.has(i.id))) userClosed = false;
+    for (const i of items) seenIds.add(i.id);
     for (const [id, s] of [...sending]) {
       const item = byId(id);
       if (!item || item.updatedAt !== s.stamp || item.state !== s.state) { cancel(s.timer); sending.delete(id); }
     }
     let advanced = false;
-    // A queued item that left the queue moves the selection on. A resolved
-    // item the human opened from the strip stays put while it is still there.
+    // A queued item that left the queue moves the selection on. A closed
+    // item the human opened stays put while it is still listed.
     const wasQueued = selectedId != null && prevOrderIds.includes(selectedId);
-    if (selectedId && !order.some((i) => i.id === selectedId) && (wasQueued || !recent.some((i) => i.id === selectedId))) {
+    if (selectedId && !order.some((i) => i.id === selectedId) && (wasQueued || !closed.some((i) => i.id === selectedId))) {
       const wasAuto = autoPicked;
       setSelected(nextAfter(prevOrderIds, selectedId, order));
       autoPicked = wasAuto && selectedId != null;

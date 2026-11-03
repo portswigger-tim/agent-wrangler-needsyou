@@ -117,11 +117,17 @@ async function shot(page, name, { el, note } = {}) {
 
 const view = (page) => page.evaluate((h) => { location.hash = h; }, VIEW).then(() => page.waitForSelector('.ibx-root'));
 const board = (page) => page.evaluate(() => { location.hash = ''; document.querySelector('#nav-rail button[data-view="grid"]')?.click(); }).then(() => page.waitForTimeout(500));
-const openRows = (page) => page.locator('.ibx-queue .ibx-row');
+const openRows = (page) => page.locator('.ibx-queue .ibx-row:not(.ibx-closed-row):not(.ibx-leaving)');
+const closedRows = (page) => page.locator('.ibx-queue .ibx-row.ibx-closed-row:not(.ibx-leaving)');
+const showFilter = async (page, name) => {
+  await page.locator(`.ibx-filter[data-filter="${name}"]`).click();
+  await page.waitForTimeout(300);
+};
+const pressedFilter = (page) => page.locator('.ibx-filter[aria-pressed="true"]').getAttribute('data-filter');
 const rowTitled = (page, text) => page.locator('.ibx-row', { hasText: text }).first();
 const inboxState = (page) => page.evaluate(() => ({
   rows: [...document.querySelectorAll('.ibx-queue .ibx-row .ibx-row-title')].map((e) => e.textContent),
-  recent: [...document.querySelectorAll('.ibx-recent-list .ibx-row .ibx-row-title')].map((e) => e.textContent),
+  closed: [...document.querySelectorAll('.ibx-queue .ibx-row.ibx-closed-row .ibx-row-title')].map((e) => e.textContent),
 }));
 
 try {
@@ -131,6 +137,9 @@ try {
   await view(page);
   await shot(page, 'queue-empty', { note: 'the empty queue' });
   expect(await page.locator('.ibx-next').count() === 0, 'there is no Next button (0.1.3): the n key does its job');
+  expect(await pressedFilter(page) === 'open', 'the view opens on the Open filter');
+  expect(await page.locator('.ibx-count').isHidden(), 'no "N open" count when nothing is open');
+  expect(await page.locator('.ibx-recent').count() === 0, 'the Recently resolved strip is gone (0.1.4)');
 
   // ── 2. Every status interruption ───────────────────────────────────────────
   for (const [sid, need] of Object.entries(NEEDS)) STATUS.set(sid, { status: 'needs-you', ...need });
@@ -192,14 +201,16 @@ try {
   if (expect(await workerCard.count() > 0, "the worker's card is on the board")) {
     await workerCard.click({ button: 'right' });
     await page.waitForTimeout(400);
-    await shot(page, 'card-menu-worker', { note: "the worker's card menu: one can-ask item, 'Let it ask you directly · asks its orchestrator'" });
+    await shot(page, 'card-menu-worker', { note: "the worker's card menu: one can-ask item, 'Let it ask you directly', unticked" });
     const allow = page.getByText('Let it ask you directly').first();
     if (expect(await allow.count() > 0, 'the card menu offers "Let it ask you directly"')) {
       await allow.click();
       await page.waitForTimeout(800);
       await workerCard.click({ button: 'right' });
       await page.waitForTimeout(400);
-      await shot(page, 'card-menu-worker-allowed', { note: "after allowing: one item, 'Send its questions to the orchestrator · asks you directly'" });
+      const ticked = page.locator('.context-menu-item', { hasText: 'Let it ask you directly' }).first();
+      expect(((await ticked.textContent()) ?? '').includes('✓'), 'after allowing, the item shows a tick');
+      await shot(page, 'card-menu-worker-allowed', { note: "after allowing: the same item, 'Let it ask you directly ✓', ticked" });
       await page.keyboard.press('Escape');
     }
   }
@@ -236,6 +247,10 @@ try {
   expect(forceAt >= 0 && forceAt < firstNormal && q[forceAt].urgent === 'Urgent',
     `the urgent approval sorts with the blockers, before every other request, tagged (at ${forceAt})`);
   expect(await page.locator('.ibx-detail .ibx-d-title').count() === 1, 'the queue opens on its first item');
+  const countText = (await page.locator('.ibx-count').textContent())?.trim();
+  expect(countText === `${q.length} open`, `the head says "${q.length} open" (got "${countText}")`);
+  const openBtn = (await page.locator('.ibx-filter[data-filter="open"]').textContent())?.trim();
+  expect(openBtn === `Open (${q.length})`, `the Open filter counts the queue (got "${openBtn}")`);
 
   const count = await openRows(page).count();
   for (let i = 0; i < count; i++) {
@@ -281,21 +296,72 @@ try {
     await shot(page, 'answer-failed-delivery', { note: 'answer refused by core (archived card): failed delivery state, retry' });
   }
 
-  // ── 6. Needs clearing on their own → recently resolved ─────────────────────
+  // ── 6. Needs clearing on their own → the Closed filter ─────────────────────
   STATUS.delete('e2e-perm');
   STATUS.delete('e2e-trust');
   await refresh();
-  await page.waitForFunction(() => document.querySelectorAll('.ibx-recent-list .ibx-row').length >= 2, null, { timeout: 15_000 }).catch(() => {});
+  await page.waitForFunction(() => /Closed \(([2-9]|\d\d)\)/.test(document.querySelector('.ibx-filter[data-filter="closed"]')?.textContent ?? ''), null, { timeout: 15_000 }).catch(() => {});
   await page.waitForTimeout(500);
-  await shot(page, 'queue-after-clear', { note: 'two status needs cleared: gone from the queue, in recently resolved' });
-  const recent = page.locator('.ibx-recent-list .ibx-row').first();
-  if (expect(await recent.count() > 0, 'cleared items appear under recently resolved')) {
-    await page.locator('.ibx-recent').first().evaluate((d) => { if (d.tagName === 'DETAILS') d.open = true; });
-    await recent.click();
+  await shot(page, 'queue-after-clear', { note: 'two status needs cleared: gone from the queue, counted under Closed' });
+
+  // C1: the X closes the detail, and the next tick does not reopen it.
+  await openRows(page).first().click();
+  await page.waitForTimeout(200);
+  const closeBtn = page.locator('.ibx-detail .ibx-close');
+  if (expect(await closeBtn.count() === 1 && await closeBtn.getAttribute('aria-label') === 'Close', 'two panes: the detail has an X labelled Close')) {
+    await closeBtn.click();
+    await refresh();
+    await refresh();
+    await shot(page, 'detail-closed', { note: 'after the X: nothing selected, the hint in the right pane, two ticks later' });
+    expect(await page.locator('.ibx-detail .ibx-d-title').count() === 0, 'the X clears the selection, and later ticks do not auto-select');
+    expect(((await page.locator('.ibx-d-placeholder').textContent()) ?? '').includes('press n'), 'the right pane shows the hint');
+    expect(await page.locator('.ibx-queue .ibx-row.ibx-selected').count() === 0, 'no row is selected');
+    await page.keyboard.press('n');
+    await page.waitForTimeout(200);
+    expect(await page.locator('.ibx-detail .ibx-d-title').count() === 1, 'n selects the top item again');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+    if (await page.locator('.ibx-detail .ibx-d-title').count()) { await page.keyboard.press('Escape'); await page.waitForTimeout(200); }
+    expect(await page.locator('.ibx-detail .ibx-d-title').count() === 0, 'Escape closes the detail too');
+  }
+
+  await showFilter(page, 'closed');
+  expect(await pressedFilter(page) === 'closed', 'the Closed filter is pressed');
+  const closedAges = await closedRows(page).locator('.ibx-row-age').allTextContents();
+  expect(closedAges.length >= 2 && closedAges.every((a) => /^closed .+ ago$|^sending$/.test(a)), `closed rows say when they closed (${closedAges.join(', ')})`);
+  expect(await openRows(page).count() === 0, 'Closed shows no open items');
+  await shot(page, 'filter-closed', { note: 'the Closed filter: newest close first, each "closed Nm ago"' });
+  const closedRow = closedRows(page).first();
+  if (expect(await closedRow.count() > 0, 'cleared items appear under Closed')) {
+    await closedRow.click();
     await page.waitForTimeout(300);
-    await shot(page, 'resolved-readonly', { note: 'a resolved item: read-only' });
+    await shot(page, 'resolved-readonly', { note: 'a closed item: read-only, with the X' });
     expect(await page.locator('.ibx-d-readonly button').count() === 0, 'a resolved item has no button row');
   }
+
+  await showFilter(page, 'all');
+  const allState = await inboxState(page);
+  const firstClosed = await page.evaluate(() => [...document.querySelectorAll('.ibx-queue .ibx-row:not(.ibx-leaving)')].findIndex((r) => r.classList.contains('ibx-closed-row')));
+  const lastOpen = (await openRows(page).count()) - 1;
+  expect(allState.closed.length >= 2 && firstClosed === lastOpen + 1, `All: the open list, then the closed list (open ${lastOpen + 1}, closed ${allState.closed.length})`);
+  await shot(page, 'filter-all', { note: 'the All filter: open items, a rule, then closed items' });
+  await page.locator('.ibx-list-pane').evaluate((el) => el.scrollTo(0, 99999));
+  await shot(page, 'filter-all-bottom', { note: 'the All filter scrolled to where the closed part starts' });
+
+  // n from All switches to Open and selects the top item.
+  await page.locator('.ibx-root').focus();
+  await page.keyboard.press('n');
+  await page.waitForTimeout(300);
+  expect(await pressedFilter(page) === 'open', 'n from All switches to Open');
+  await shot(page, 'filter-open', { note: 'the Open filter, after n from All: the top item selected' });
+
+  // The choice is remembered per browser.
+  await showFilter(page, 'closed');
+  await page.reload();
+  await page.waitForSelector('.ibx-root');
+  await page.waitForTimeout(800);
+  expect(await pressedFilter(page) === 'closed', 'the chosen filter survives a reload (localStorage)');
+  await showFilter(page, 'open');
 
   // ── 7. Light theme, the same state ─────────────────────────────────────────
   await context.close();
@@ -313,18 +379,33 @@ try {
   await rowTitled(page, 'caching spike').click().catch(() => {});
   await page.waitForTimeout(300);
   await shot(page, 'light-failed-delivery', { note: 'light: the failed delivery, its tag and the archived session named' });
+  await showFilter(page, 'closed');
+  await closedRows(page).first().click().catch(() => {});
+  await page.waitForTimeout(300);
+  await shot(page, 'light-filter-closed', { note: 'light: the Closed filter with a closed item open' });
+  await showFilter(page, 'all');
+  await page.locator('.ibx-list-pane').evaluate((el) => el.scrollTo(0, 99999));
+  await shot(page, 'light-filter-all', { note: 'light: the All filter where the closed part starts' });
   await context.close();
 
   // ── 8. Phone width ─────────────────────────────────────────────────────────
   ({ context, page, refresh } = await openBoard({ width: 375, height: 812 }));
   await view(page);
   await refresh();
-  await shot(page, 'narrow-list', { note: '375px: the list' });
+  await shot(page, 'narrow-list', { note: '375px: the list, with the filters in the head' });
   await rowTitled(page, 'Card form').click();
   await page.waitForTimeout(300);
   await shot(page, 'narrow-detail', { note: '375px: the detail, with Back' });
+  expect(await page.locator('.ibx-detail .ibx-close').count() === 0 || !(await page.locator('.ibx-detail .ibx-close').isVisible()), '375px: no X, Back does its job');
   await page.evaluate(() => document.querySelector('.ibx-detail-pane')?.scrollTo(0, 99999));
   await shot(page, 'narrow-detail-bottom', { note: '375px: the detail scrolled to its actions' });
+  await page.locator('.ibx-back').click();
+  await page.waitForTimeout(200);
+  await showFilter(page, 'closed');
+  await shot(page, 'narrow-filter-closed', { note: '375px: the Closed filter' });
+  await closedRows(page).first().click().catch(() => {});
+  await page.waitForTimeout(300);
+  await shot(page, 'narrow-closed-detail', { note: '375px: a closed item, with Back' });
   await context.close();
 
   // ── 9. The README's screenshot (docs/notes/needs-you.png) ──────────────────
