@@ -46,10 +46,11 @@ Pure apart from store calls. Rules:
      (`status:<sid>:<observed.updatedAt>`)
    - **in-process:** a `Map<sessionId, true>` set on dismissal and cleared when an observation
      shows the session out of `needs-you`. It covers `updatedAt` drifting within one episode. Otherwise create a status item:
-   `kind:'blocked'`, `title` from `titleFor(waitingFor, waitingReason)` (below),
-   `body` = `waitingFor` (markdown-escaped), `blocking:true`, `urgency` = `'high'` for
+   `kind:'blocked'`, `title` from `titleFor(waitingFor, waitingReason)` and `status.cause` from
+   `causeFor` (both read one table, below), `body` = `waitingFor` (markdown-escaped), or `''` when
+   it is only core's bare phrase (`permission prompt`, `input needed`, `trust dialog`; 0.1.2), `blocking:true`, `urgency` = `'high'` for
    `api-error-blocking`, else `'normal'`.
-3. **Update.** If an open status item exists and `waitingFor` changed, update `status.waitingFor`
+3. **Update.** If an open status item exists and `waitingFor` changed, update `status.waitingFor`, `status.cause`
    and the title in place with `store.update`. This does **not** reset `readAt`, so it isn't
    announced again.
 4. **Resolve.** For every open status item whose session is in the snapshot with a status other
@@ -69,18 +70,18 @@ Pure apart from store calls. Rules:
 (`tmux-scraper.js`), never bare words, so a permission prompt such as "Bash: npm update" keeps
 its own text:
 
-| match | title |
-| --- | --- |
-| `waitingReason === 'api-error-blocking'` | `API error — action needed` |
-| `waitingReason === 'api-error'` | `API error — retry` |
-| exactly `permission prompt` (0.1.1) | `Permission needed in the session` |
-| exactly `input needed` (0.1.1, Claude Code's `AskUserQuestion`) | `Question waiting in the session` |
-| exactly `trust dialog`, or contains `whether to trust this folder` | `Confirm folder trust` |
-| contains `select login method` / `oauth/authorize` | `Sign-in required` |
-| contains `update finished` / `cli update available` | `Agent update needs a restart` |
-| `container bring-up failed` | `Container failed to start` |
-| `permission` or anything else non-empty | `Waiting for you: <waitingFor truncated to 80>` |
-| empty / null | `Session needs you` |
+| match | title | cause (0.1.2) |
+| --- | --- | --- |
+| `waitingReason === 'api-error-blocking'` | `API error — action needed` | `api-error` |
+| `waitingReason === 'api-error'` | `API error — retry` | `api-error` |
+| exactly `permission prompt` (0.1.1) | `Permission needed in the session` | `permission` |
+| exactly `input needed` (0.1.1, Claude Code's `AskUserQuestion`) | `Question waiting in the session` | `question` |
+| exactly `trust dialog`, or contains `whether to trust this folder` | `Confirm folder trust` | `trust` |
+| contains `select login method` / `oauth/authorize` | `Sign-in required` | `sign-in` |
+| contains `update finished` / `cli update available` | `Agent update needs a restart` | `update` |
+| `container bring-up failed` | `Container failed to start` | `container` |
+| anything else non-empty (a tool call awaiting approval) | `Waiting for you: <waitingFor truncated to 80>` | `permission` |
+| empty / null | `Session needs you` | `other` |
 
 ## Handler: `inbox-observe`
 
