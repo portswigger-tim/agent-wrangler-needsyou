@@ -96,7 +96,7 @@ test('the empty state shows when nothing needs the human', () => {
   v.view.update(graphOf([]));
   assert.equal(v.q('.ibx-empty').hidden, false);
   assert.equal(text(v.q('.ibx-empty')), 'Nothing needs you right now.');
-  assert.equal(v.q('.ibx-next').disabled, true);
+  assert.equal(v.q('.ibx-next'), null, 'no Next button (0.1.3): the n key does its job');
   assert.equal(v.q('.ibx-recent').hidden, true, 'no strip without anything resolved');
 });
 
@@ -324,17 +324,17 @@ test('mark-read is sent once per item, and only while the view is on screen', as
   ]);
 });
 
-test('Next walks the queue and selection advances in queue order as items resolve', () => {
+test('n jumps to the top item, and selection advances in queue order as items resolve', () => {
   const v = mountView();
   const blocked = statusItem({ createdAt: 5 });
   const high = item({ urgency: 'high', createdAt: 7 });
   const normal = item({ createdAt: 1 });
   const all = [normal, high, blocked];
   v.view.update(graphOf(all));
-  v.q('.ibx-next').click();
-  assert.equal(v.view.selectedId, blocked.id, 'Next selects the top item');
-  v.q('.ibx-next').click();
-  assert.equal(v.view.selectedId, high.id, 'Next on the top item moves on');
+  v.press('n');
+  assert.equal(v.view.selectedId, blocked.id, 'n selects the top item');
+  v.press('n');
+  assert.equal(v.view.selectedId, high.id, 'n on the top item moves on');
   v.view.select(blocked.id);
   // The blocked session went back to work while the human was looking at it.
   v.view.update(graphOf([normal, high, { ...blocked, state: 'resolved', resolvedReason: 'status-cleared' }]));
@@ -596,11 +596,11 @@ test('two panes: the queue opens on its first item, without focus or marking it 
   assert.equal(text(v.q('.ibx-d-title')), a.title);
   assert.ok(!v.root.contains(v.document.activeElement) || v.document.activeElement === v.root || v.document.activeElement === v.document.body);
   assert.equal(v.sent.filter((f) => f.type === 'inbox-mark-read').length, 0, 'not marked read');
-  // Next starts on the item shown, then moves on.
-  v.q('.ibx-next').click();
+  // n starts on the item shown, then moves on.
+  v.press('n');
   assert.equal(v.view.selectedId, a.id);
   assert.deepEqual(v.sent.filter((f) => f.type === 'inbox-mark-read'), [{ type: 'inbox-mark-read', ids: [a.id] }]);
-  v.q('.ibx-next').click();
+  v.press('n');
   assert.equal(v.view.selectedId, b.id);
 });
 
@@ -610,20 +610,15 @@ test('one pane: nothing is selected until the human picks', () => {
   assert.equal(v.view.selectedId, null);
 });
 
-test('Next is disabled on an empty queue and when only the selected item remains', () => {
+test('n jumps back to the top item from lower down the queue', () => {
   const v = mountView();
-  v.view.update(graphOf([]));
-  assert.equal(v.q('.ibx-next').disabled, true);
-  assert.equal(v.q('.ibx-next').getAttribute('aria-disabled'), 'true');
-  const a = item();
-  v.view.update(graphOf([a]));
-  assert.equal(v.q('.ibx-next').disabled, false);
-  assert.equal(v.q('.ibx-next').getAttribute('aria-disabled'), null);
-  v.view.select(a.id);
-  assert.equal(v.q('.ibx-next').disabled, true);
-  assert.equal(v.q('.ibx-next').getAttribute('aria-disabled'), 'true');
-  v.view.update(graphOf([a, item()]));
-  assert.equal(v.q('.ibx-next').disabled, false);
+  const a = item({ createdAt: 1 });
+  const b = item({ createdAt: 2 });
+  const c = item({ createdAt: 3 });
+  v.view.update(graphOf([a, b, c]));
+  v.view.select(c.id);
+  v.press('n');
+  assert.equal(v.view.selectedId, a.id, 'from the third item, n goes to the top, not the item below');
 });
 
 test('the answer box has a visible label', () => {

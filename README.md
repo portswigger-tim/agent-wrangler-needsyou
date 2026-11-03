@@ -88,7 +88,7 @@ Use these keys in the **Needs you** view:
 
 | Key | What it does |
 | --- | --- |
-| `n` | Go to the next item |
+| `n` | Go to the top item, the one that has waited at the highest cost. If you are on it already, go to the second item |
 | `j` or `↓` | Go down the list |
 | `k` or `↑` | Go up the list |
 | `1` to `6` | Choose an option. Then press `Enter` to send it |

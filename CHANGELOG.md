@@ -1,6 +1,14 @@
 # Changelog
 
-## 0.1.2 (unreleased)
+## 0.1.3 (unreleased)
+
+### Changed
+
+- **No Next button.** The queue opens on its first item, and answering or
+  dismissing moves on by itself, so the header button added nothing. The `n`
+  key stays: it jumps to the top item (the second, if you are on the top one).
+
+## 0.1.2
 
 Fixes from the e2e screenshot walk-through and the human's review of it
 (`docs/specs/fixes-0.1.2.md`). Same host API (`^1.57.0`) and capabilities.

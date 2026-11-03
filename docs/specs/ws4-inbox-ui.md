@@ -43,8 +43,9 @@ The badge counts **open items** (contracts §4 `open`), not unread ones, and is 
 **Layout:** two panes. On widths under 900 px it collapses to list → detail with a Back button.
 
 *List pane*, top to bottom:
-1. Header "Needs you", the count "N waiting", and a **Next** button (also the `n` key): it selects
-   the top item, focuses its primary control, and after an answer or dismiss moves on to the next.
+1. Header "Needs you" and the count "N waiting". The `n` key selects the top item and focuses
+   its primary control. After an answer or dismiss the view moves on to the next item. (0.1.3: the
+   **Next** button that also did this was removed at the human's request; the key stays.)
 2. **The queue**, ordered by cost of waiting. `queueOrder(items)` is a pure, exported and tested
    function:
    1. `blocked` (status) items, oldest first: the session is stopped.
@@ -95,7 +96,7 @@ There is no separate "Use default" item: clearing the override (`null`) is alway
 - Opening an item in the detail pane sends `inbox-mark-read {ids:[id]}` once (track sent ids so
   it doesn't repeat every tick).
 
-**Keyboard** (only while the view is active): `n` next, `j`/`k` or ↑/↓ move the selection, `Enter`
+**Keyboard** (only while the view is active): `n` top item (the second, if the top is selected), `j`/`k` or ↑/↓ move the selection, `Enter`
 opens it, `1`–`6` choose an option, `e` dismisses. After an answer or dismiss, selection advances
 to the next item in queue order. Use plain listeners scoped to the view element
 (focus inside it), not `api.keys.bind`. That avoids the manifest `keybindings` disclosure in v1.

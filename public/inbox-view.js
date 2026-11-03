@@ -1,5 +1,6 @@
 // The "Needs you" view: a triage queue (list pane) and the selected item
-// (detail pane), worked one item at a time with Next. A row from the
+// (detail pane), worked one item at a time: answering or dismissing moves on,
+// and `n` jumps to the top item. A row from the
 // "Recently resolved" strip opens read-only: what was asked, what was chosen,
 // how and when it closed, with no buttons but the header's session link.
 //
@@ -31,7 +32,6 @@ const SHELL_HTML = `
     <header class="ibx-head">
       <h2 class="ibx-heading">Needs you</h2>
       <span class="ibx-count"></span>
-      <button type="button" class="ibx-btn ibx-next" title="Next item (n)">Next</button>
     </header>
     <div class="ibx-queue" role="listbox" aria-label="Waiting on you"></div>
     <p class="ibx-empty" role="status">Nothing needs you right now.</p>
@@ -67,7 +67,6 @@ export function createInboxView(el, api, {
   const isTwoPanes = twoPanes || (() => root.clientWidth >= TWO_PANES_PX);
   const q = (sel) => root.querySelector(sel);
   const countEl = q('.ibx-count');
-  const nextBtn = q('.ibx-next');
   const queueEl = q('.ibx-queue');
   const emptyEl = q('.ibx-empty');
   const recentEl = q('.ibx-recent');
@@ -84,7 +83,7 @@ export function createInboxView(el, api, {
   let prevOrderIds = [];
   let selectedId = null;
   // The selection is the queue's first item, picked for a two-pane layout,
-  // not one the human opened: it is not marked read, and Next starts on it.
+  // not one the human opened: it is not marked read, and `n` starts on it.
   let autoPicked = false;
   let pendingId = null;
   let detailOpen = false;
@@ -220,7 +219,7 @@ export function createInboxView(el, api, {
     const caret = hadFocus && active.tagName === 'TEXTAREA' ? [active.selectionStart, active.selectionEnd] : null;
     detailEl.replaceChildren();
     if (!item) {
-      detailEl.appendChild(make('p', 'ibx-d-placeholder', order.length ? 'Select an item, or press n for the next one.' : ''));
+      detailEl.appendChild(make('p', 'ibx-d-placeholder', order.length ? 'Select an item, or press n for the top one.' : ''));
       return;
     }
     detailEl.appendChild(detailHead(item));
@@ -626,7 +625,6 @@ export function createInboxView(el, api, {
     const row = e.target.closest('.ibx-row');
     if (row) select(row.dataset.id, { open: true });
   });
-  nextBtn.addEventListener('click', () => next());
   backBtn.addEventListener('click', () => {
     detailOpen = false;
     render();
@@ -685,10 +683,6 @@ export function createInboxView(el, api, {
     const n = order.length;
     autoPick();
     setText(countEl, n ? `${n} waiting` : '');
-    // Nothing to move on to: the queue is empty, or holds only the selection.
-    const noNext = n === 0 || (n === 1 && selectedId === order[0].id);
-    nextBtn.disabled = noNext;
-    setAttr(nextBtn, 'aria-disabled', noNext ? 'true' : null);
     emptyEl.hidden = n > 0;
     patchList(queueEl, order, { key: (i) => i.id, create: createRow, update: updateRow, leaveMs, schedule });
     recentEl.hidden = recent.length === 0;

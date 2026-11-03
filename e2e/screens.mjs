@@ -130,7 +130,7 @@ try {
   await shot(page, 'board-empty', { note: 'board, nothing needed: no pills, no rail badge' });
   await view(page);
   await shot(page, 'queue-empty', { note: 'the empty queue' });
-  expect(await page.locator('.ibx-next[aria-disabled="true"]').count() === 1, 'Next is disabled on an empty queue');
+  expect(await page.locator('.ibx-next').count() === 0, 'there is no Next button (0.1.3): the n key does its job');
 
   // ── 2. Every status interruption ───────────────────────────────────────────
   for (const [sid, need] of Object.entries(NEEDS)) STATUS.set(sid, { status: 'needs-you', ...need });
@@ -262,11 +262,11 @@ try {
   await shot(page, 'dismiss-confirm', { note: 'dismiss confirmation' });
   await page.locator('.ibx-confirm-no').first().click();
 
-  // Keyboard: focus moves with n (Next).
+  // Keyboard: n jumps to the top item (from the top, to the second).
   await page.locator('.ibx-queue .ibx-row').first().click();
   await page.keyboard.press('n');
   await page.waitForTimeout(200);
-  await shot(page, 'keyboard-next', { note: 'after pressing n: next item selected, focus ring visible' });
+  await shot(page, 'keyboard-next', { note: 'after pressing n on the top item: the second item selected, focus ring visible' });
 
   // ── 5. Answering: the archived card, which core refuses to deliver to ─────
   const archived = await ask('e2e-archived', {

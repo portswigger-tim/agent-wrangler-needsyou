@@ -14,8 +14,9 @@ The non-obvious decisions behind `public/index.js`, `public/inbox-*.js`,
 - At desktop width (two panes), the view selects the first item when nothing
   is selected (0.1.2, F5). The auto-picked item is not marked read until you
   act on it. At phone width the list shows first.
-- **Next** is disabled (`aria-disabled`) when nothing is waiting, or only the
-  selected item is (F8).
+- There is no **Next** button (0.1.3, at the human's request). With the first
+  item auto-selected and answering or dismissing moving on by itself, it added
+  nothing on a desktop. The `n` key stays.
 - An answer still being delivered leaves the queue and shows as "sending"
   under **Recently resolved**. A failed delivery comes back as the last tier of
   the queue, with **Retry**.
@@ -23,8 +24,10 @@ The non-obvious decisions behind `public/index.js`, `public/inbox-*.js`,
 
 ## Keyboard and focus
 
-- Number keys pick an option and focus **Send**, so `Enter` sends. `n` moves on
-  from the current item, not from the top.
+- Number keys pick an option and focus **Send**, so `Enter` sends. `n` jumps to
+  the **top** item of the queue, not to the item below the selection. On the
+  top item it moves to the second. On an auto-picked first item it opens that
+  item first.
 - Keys are scoped to the view and stop propagating, so the board's own
   shortcuts don't fire while you work the queue.
 - A MutationObserver focuses the view when it's shown. That is also when a

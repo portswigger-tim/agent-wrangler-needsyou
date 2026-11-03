@@ -15,7 +15,7 @@ output that does *not* need the human, which buries the real asks.
 
 A **"Needs you"** view (extension id `needsyou`): a triage queue listing only what needs the human to
 **decide or act**, ordered by the cost of waiting. It is glanceable like a live feed, self-clearing
-and usually empty, and is worked one item at a time with **Next**.
+and usually empty, and is worked one item at a time: answering or dismissing moves on to the next item.
 An item appears only when a new decision or action is **required**. Everything else stays out:
 progress, finished sessions, peer mail, FYIs.
 
