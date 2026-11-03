@@ -102,8 +102,9 @@ test('update patches title and status in place and never touches readAt', () => 
   store.markRead([s.id]);
   const readAt = store.get(s.id).readAt;
   now.tick(3);
-  const u = store.update(s.id, { title: 'Waiting\non sign-in', status: { waitingFor: 'sign-in' } });
-  assert.deepEqual([u.title, u.status, u.readAt, u.updatedAt, u.state], ['Waiting on sign-in', { waitingFor: 'sign-in', waitingReason: 'permission', episode: 'e1' }, readAt, now(), 'open']);
+  const u = store.update(s.id, { title: 'Waiting\non sign-in', status: { waitingFor: 'sign-in', cause: 'sign-in' } });
+  assert.deepEqual([u.title, u.status, u.readAt, u.updatedAt, u.state], ['Waiting on sign-in', { waitingFor: 'sign-in', waitingReason: 'permission', episode: 'e1', cause: 'sign-in' }, readAt, now(), 'open']);
+  assert.equal(store.update(s.id, { status: { waitingFor: 'x' } }).status.cause, 'sign-in', 'a patch without a cause keeps it');
   for (const k of ['state', 'id', 'readAt', 'sessionId', 'dedupeKey', 'answer']) assert.throws(() => store.update(s.id, { [k]: 'x' }), new RegExp(`does not take "${k}"`));
   assert.throws(() => store.update(s.id, { title: '' }), /title/);
   assert.throws(() => store.update(s.id, { options: [] }), /a status item has no "options"/);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateAgentRequest, normaliseItem, validateAnswer, newItemId, isUnread, needsAction, LIMITS } from './item.js';
+import { validateAgentRequest, normaliseItem, validateAnswer, newItemId, isUnread, needsAction, LIMITS, STATUS_CAUSES } from './item.js';
 
 const ok = (args) => {
   const r = validateAgentRequest(args);
@@ -102,7 +102,7 @@ test('normaliseItem fills a complete item and clips text', () => {
 test('normaliseItem keeps the status/source invariants', () => {
   const status = normaliseItem(base({ source: 'status', kind: 'blocked', options: [{ id: 'a', label: 'A' }], blocking: false, expiresAt: 5, status: { waitingFor: 'permission', waitingReason: null, episode: 'e1' } }));
   assert.deepEqual([status.options, status.allowFreeText, status.blocking, status.expiresAt], [[], true, true, null]);
-  assert.deepEqual(status.status, { waitingFor: 'permission', waitingReason: null, episode: 'e1' });
+  assert.deepEqual(status.status, { waitingFor: 'permission', waitingReason: null, episode: 'e1', cause: 'other' });
   assert.throws(() => normaliseItem(base({ kind: 'blocked' })), /blocked/);
   assert.throws(() => normaliseItem(base({ source: 'status', kind: 'decision', status: { episode: 'e' } })), /blocked/);
   assert.throws(() => normaliseItem(base({ source: 'status', kind: 'blocked' })), /needs its status/);
@@ -141,4 +141,12 @@ test('unread and needs-action', () => {
   assert.equal(isUnread(answered), false);
   assert.equal(needsAction(answered), true);
   assert.equal(needsAction({ ...answered, answer: { ...answered.answer, delivery: 'pending' } }), false);
+});
+
+test('normaliseItem keeps a valid status cause and reads a missing or invalid one as other', () => {
+  const withCause = (cause) => normaliseItem(base({ source: 'status', kind: 'blocked', status: { waitingFor: 'x', waitingReason: null, episode: 'e1', cause } })).status.cause;
+  for (const c of STATUS_CAUSES) assert.equal(withCause(c), c);
+  assert.deepEqual(STATUS_CAUSES, ['permission', 'question', 'trust', 'sign-in', 'update', 'container', 'api-error', 'other']);
+  for (const bad of [undefined, null, '', 'Permission', 'blocked', 3, {}]) assert.equal(withCause(bad), 'other');
+  assert.equal(normaliseItem(base()).status, undefined, 'an agent item has no status');
 });

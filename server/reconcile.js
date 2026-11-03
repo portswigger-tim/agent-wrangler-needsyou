@@ -31,21 +31,46 @@ const escapeMarkdown = (s) => s.replace(/[\\`*_{}[\]()#+\-.!|<>~&]/g, '\\$&');
 
 const clip = (s, max) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
 
-export function titleFor(waitingFor, waitingReason) {
-  if (waitingReason === 'api-error-blocking') return 'API error — action needed';
-  if (waitingReason === 'api-error') return 'API error — retry';
+// One table for both the title and the cause, so the two can never disagree
+// (first match wins). Phrases core itself emits (tmux-scraper.js), not bare words:
+// a permission prompt such as "Bash: npm update" or "git log --trust" must not be
+// retitled. `t` is the single-lined, lower-cased waitingFor.
+const STATUS_RULES = [
+  { match: (t, r) => r === 'api-error-blocking', title: () => 'API error — action needed', cause: 'api-error' },
+  { match: (t, r) => r === 'api-error', title: () => 'API error — retry', cause: 'api-error' },
+  { match: (t) => !t, title: () => 'Session needs you', cause: 'other' },
+  { match: (t) => t === 'permission prompt', title: () => 'Permission needed in the session', cause: 'permission' },
+  { match: (t) => t === 'input needed', title: () => 'Question waiting in the session', cause: 'question' },
+  { match: (t) => t === 'trust dialog' || t.includes('whether to trust this folder'), title: () => 'Confirm folder trust', cause: 'trust' },
+  { match: (t) => t.includes('select login method') || t.includes('oauth/authorize'), title: () => 'Sign-in required', cause: 'sign-in' },
+  { match: (t) => /\b(update finished|cli update available)\b/.test(t), title: () => 'Agent update needs a restart', cause: 'update' },
+  { match: (t) => t.includes('container bring-up failed'), title: () => 'Container failed to start', cause: 'container' },
+  // Anything else is a tool call: core shows one only while it waits for approval.
+  { match: () => true, title: (text) => `Waiting for you: ${clip(text, TITLE_WAITING_FOR)}`, cause: 'permission' },
+];
+
+// Core's bare phrases carry nothing the title and cause don't already say.
+const CORE_PHRASES = new Set(['permission prompt', 'input needed', 'trust dialog']);
+
+function ruleFor(waitingFor, waitingReason) {
   const text = typeof waitingFor === 'string' ? singleLine(waitingFor) : '';
-  if (!text) return 'Session needs you';
-  // Phrases core itself emits (tmux-scraper.js), not bare words: a permission
-  // prompt such as "Bash: npm update" or "git log --trust" must not be retitled.
-  const t = text.toLowerCase();
-  if (t === 'permission prompt') return 'Permission needed in the session';
-  if (t === 'input needed') return 'Question waiting in the session';
-  if (t === 'trust dialog' || t.includes('whether to trust this folder')) return 'Confirm folder trust';
-  if (t.includes('select login method') || t.includes('oauth/authorize')) return 'Sign-in required';
-  if (/\b(update finished|cli update available)\b/.test(t)) return 'Agent update needs a restart';
-  if (t.includes('container bring-up failed')) return 'Container failed to start';
-  return `Waiting for you: ${clip(text, TITLE_WAITING_FOR)}`;
+  const rule = STATUS_RULES.find((r) => r.match(text.toLowerCase(), waitingReason));
+  return { rule, text };
+}
+
+export function titleFor(waitingFor, waitingReason) {
+  const { rule, text } = ruleFor(waitingFor, waitingReason);
+  return rule.title(text);
+}
+
+export function causeFor(waitingFor, waitingReason) {
+  return ruleFor(waitingFor, waitingReason).rule.cause;
+}
+
+// The terminal text, unless it is only one of core's phrases.
+export function bodyFor(waitingFor) {
+  if (typeof waitingFor !== 'string' || !waitingFor) return '';
+  return CORE_PHRASES.has(singleLine(waitingFor).toLowerCase()) ? '' : escapeMarkdown(waitingFor);
 }
 
 const statusString = (v) => (typeof v === 'string' && v ? v.slice(0, MAX_STATUS_STRING) : null);
@@ -106,16 +131,18 @@ export function reconcile(store, observed, { settings = {}, now = Date.now, task
     const waitingFor = statusString(o.waitingFor);
     const waitingReason = statusString(o.waitingReason);
     const title = titleFor(waitingFor, waitingReason);
-    const body = waitingFor ? escapeMarkdown(waitingFor) : '';
+    const cause = causeFor(waitingFor, waitingReason);
+    const body = bodyFor(waitingFor);
     const urgency = waitingReason === 'api-error-blocking' ? 'high' : 'normal';
 
     const open = openStatus.get(sid);
     if (open) {
       state.openItem.set(sid, open.id);
-      if (open.status?.waitingFor !== waitingFor || open.status?.waitingReason !== waitingReason) {
+      // A cause that differs is an item from before 0.1.2 (read back as 'other').
+      if (open.status?.waitingFor !== waitingFor || open.status?.waitingReason !== waitingReason || open.status?.cause !== cause) {
         // The same need, restated: in place, so readAt survives and it isn't announced again.
         try {
-          store.update(open.id, { title, body, urgency, status: { waitingFor, waitingReason } });
+          store.update(open.id, { title, body, urgency, status: { waitingFor, waitingReason, cause } });
           updated.push(open.id);
         } catch (err) {
           log(`needs-you update failed for ${sid}: ${err.message}`);
@@ -148,7 +175,7 @@ export function reconcile(store, observed, { settings = {}, now = Date.now, task
         blocking: true,
         urgency,
         dedupeKey,
-        status: { waitingFor, waitingReason, episode },
+        status: { waitingFor, waitingReason, episode, cause },
       });
       opened.push(item.id);
       state.openItem.set(sid, item.id);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reconcile, titleFor, createReconcileState } from './reconcile.js';
+import { reconcile, titleFor, causeFor, bodyFor, createReconcileState } from './reconcile.js';
 import { fakeHost, seq, clock } from './test-helpers.js';
 
 const needsYou = (sessionId, extra = {}) => ({ sessionId, status: 'needs-you', waitingFor: 'trust dialog', waitingReason: null, updatedAt: 1000, ...extra });
@@ -49,6 +49,66 @@ test('titleFor maps waitingFor and waitingReason to the exact titles', () => {
   assert.equal(titleFor('line one\nline two', null), 'Waiting for you: line one line two');
 });
 
+test('causeFor gives each titleFor row its cause, from the same match', () => {
+  const cases = [
+    [['anything', 'api-error-blocking'], 'api-error'],
+    [['The response stopped arriving.', 'api-error'], 'api-error'],
+    [[null, 'api-error'], 'api-error'],
+    [['permission prompt', null], 'permission'],
+    [['Permission Prompt', null], 'permission'],
+    [['input needed', null], 'question'],
+    [['INPUT NEEDED', null], 'question'],
+    [['trust dialog', null], 'trust'],
+    [['Codex is asking whether to TRUST this folder', null], 'trust'],
+    [['Select login method', null], 'sign-in'],
+    [['open oauth/authorize in a browser', null], 'sign-in'],
+    [['Codex update finished — restart Codex', null], 'update'],
+    [['Codex has a CLI update available', null], 'update'],
+    [['container bring-up failed', null], 'container'],
+    // Anything else is a tool call waiting for approval, including the regressions
+    // that must not be read as one of core's phrases.
+    [['Bash: npm update', null], 'permission'],
+    [['Bash: npm publish', null], 'permission'],
+    [['Bash: npm login', null], 'permission'],
+    [['Edit trust-store.js', null], 'permission'],
+    [['a permission prompt for Bash', null], 'permission'],
+    [['more input needed here', null], 'permission'],
+    [[null, null], 'other'],
+    [['   ', null], 'other'],
+    [[undefined, undefined], 'other'],
+  ];
+  for (const [[waitingFor, reason], cause] of cases) assert.equal(causeFor(waitingFor, reason), cause, `${waitingFor} / ${reason}`);
+});
+
+test('causeFor and titleFor agree on every row', () => {
+  const byTitle = {
+    'API error — action needed': 'api-error',
+    'API error — retry': 'api-error',
+    'Session needs you': 'other',
+    'Permission needed in the session': 'permission',
+    'Question waiting in the session': 'question',
+    'Confirm folder trust': 'trust',
+    'Sign-in required': 'sign-in',
+    'Agent update needs a restart': 'update',
+    'Container failed to start': 'container',
+  };
+  const inputs = ['', 'permission prompt', 'input needed', 'trust dialog', 'whether to trust this folder', 'select login method',
+    'oauth/authorize', 'update finished', 'cli update available', 'container bring-up failed', 'Bash: npm update'];
+  for (const reason of [null, 'api-error', 'api-error-blocking']) {
+    for (const w of inputs) {
+      const title = titleFor(w, reason);
+      assert.equal(causeFor(w, reason), byTitle[title] ?? (title.startsWith('Waiting for you: ') ? 'permission' : undefined), `${w} / ${reason}`);
+    }
+  }
+});
+
+test('bodyFor leaves out the bare phrases core emits and escapes the rest', () => {
+  for (const w of ['permission prompt', 'Input Needed', 'TRUST DIALOG', ' trust dialog\n', null, undefined, '']) assert.equal(bodyFor(w), '', String(w));
+  assert.equal(bodyFor('Bash: npm update'), 'Bash: npm update');
+  assert.equal(bodyFor('a trust dialog appeared'), 'a trust dialog appeared');
+  assert.equal(bodyFor('Allow *Bash*?'), 'Allow \\*Bash\\*?');
+});
+
 test('opens a blocking status item for a needs-you session', () => {
   const { store, run, now } = setup();
   const r = run([needsYou('s1', { waitingFor: 'Allow *Bash*: rm -rf [x]?' }), other('s2'), other('s3', 'working')]);
@@ -63,7 +123,7 @@ test('opens a blocking status item for a needs-you session', () => {
   assert.equal(item.title, 'Waiting for you: Allow *Bash*: rm -rf [x]?');
   assert.equal(item.body, 'Allow \\*Bash\\*: rm \\-rf \\[x\\]?');
   assert.equal(item.dedupeKey, 'status:s1:1000');
-  assert.deepEqual(item.status, { waitingFor: 'Allow *Bash*: rm -rf [x]?', waitingReason: null, episode: 's1:1000' });
+  assert.deepEqual(item.status, { waitingFor: 'Allow *Bash*: rm -rf [x]?', waitingReason: null, episode: 's1:1000', cause: 'permission' });
   assert.equal(item.createdAt, now());
   assert.equal(item.readAt, null);
 });
@@ -114,8 +174,9 @@ test('a changed waitingFor updates in place without resetting readAt', () => {
   const item = store.get(id);
   assert.equal(item.readAt, readAt);
   assert.equal(item.title, 'Confirm folder trust');
-  assert.equal(item.body, 'trust dialog');
+  assert.equal(item.body, '');
   assert.equal(item.status.waitingFor, 'trust dialog');
+  assert.equal(item.status.cause, 'trust');
   assert.equal(item.createdAt, 100_000);
   assert.equal(item.dedupeKey, 'status:s1:1000');
   assert.equal(openStatus(store).length, 1);
@@ -303,4 +364,47 @@ test('settings may be a host.settings-style view', () => {
   const view = { get: (k) => (k === 'autoResolveOnWorking' ? false : undefined) };
   assert.deepEqual(f.run([other('s1', 'working')], { settings: view }).resolved, []);
   assert.deepEqual(f.run([other('s1', 'working')], { settings: { get: () => undefined } }).resolved, [item.id]);
+});
+
+test('the cause is set on create, from the same table as the title', () => {
+  const { store, run } = setup();
+  run([
+    needsYou('s1', { waitingFor: 'permission prompt' }),
+    needsYou('s2', { waitingFor: 'input needed' }),
+    needsYou('s3', { waitingFor: 'container bring-up failed' }),
+    needsYou('s4', { waitingFor: 'Bash: npm publish' }),
+    needsYou('s5', { waitingFor: null }),
+    needsYou('s6', { waitingFor: 'Credit balance is too low', waitingReason: 'api-error-blocking' }),
+  ]);
+  const got = Object.fromEntries(openStatus(store).map((i) => [i.sessionId, [i.status.cause, i.body]]));
+  assert.deepEqual(got, {
+    s1: ['permission', ''],
+    s2: ['question', ''],
+    s3: ['container', 'container bring\\-up failed'],
+    s4: ['permission', 'Bash: npm publish'],
+    s5: ['other', ''],
+    s6: ['api-error', 'Credit balance is too low'],
+  });
+});
+
+test('a changed waitingFor updates the cause and body in place', () => {
+  const { store, run } = setup();
+  const [id] = run([needsYou('s1', { waitingFor: 'input needed' })]).opened;
+  assert.deepEqual([store.get(id).status.cause, store.get(id).body], ['question', '']);
+  assert.deepEqual(run([needsYou('s1', { waitingFor: 'Bash: npm update' })]).updated, [id]);
+  assert.deepEqual([store.get(id).status.cause, store.get(id).body, store.get(id).title], ['permission', 'Bash: npm update', 'Waiting for you: Bash: npm update']);
+  assert.deepEqual(run([needsYou('s1', { waitingFor: 'Bash: npm update', waitingReason: 'api-error-blocking' })]).updated, [id]);
+  assert.equal(store.get(id).status.cause, 'api-error');
+});
+
+test('an open item from before 0.1.2 (no cause) gets its cause on the next snapshot, once', () => {
+  const { store, run } = setup();
+  const legacy = store.create({
+    source: 'status', kind: 'blocked', sessionId: 's1', title: 'Confirm folder trust', body: 'trust dialog', blocking: true,
+    dedupeKey: 'status:s1:1000', status: { waitingFor: 'trust dialog', waitingReason: null, episode: 's1:1000' },
+  });
+  assert.equal(legacy.status.cause, 'other');
+  assert.deepEqual(run([needsYou('s1')]), { opened: [], updated: [legacy.id], resolved: [] });
+  assert.deepEqual([store.get(legacy.id).status.cause, store.get(legacy.id).body], ['trust', '']);
+  assert.deepEqual(run([needsYou('s1')]), { opened: [], updated: [], resolved: [] });
 });

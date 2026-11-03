@@ -14,6 +14,7 @@ export const RESOLVED_REASONS = [
 ];
 export const DELIVERIES = ['pending', 'delivered', 'failed'];
 export const URGENCIES = ['normal', 'high'];
+export const STATUS_CAUSES = ['permission', 'question', 'trust', 'sign-in', 'update', 'container', 'api-error', 'other'];
 export const OPTION_ID_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 
 export const LIMITS = Object.freeze({
@@ -225,6 +226,8 @@ export function normaliseItem(raw) {
       waitingFor: optStr(s.waitingFor, LIMITS.statusString),
       waitingReason: optStr(s.waitingReason, LIMITS.statusString),
       episode: ref(s.episode, 'status.episode'),
+      // Items made before 0.1.2 have none: they read as 'other'.
+      cause: STATUS_CAUSES.includes(s.cause) ? s.cause : 'other',
     };
   }
   return item;
