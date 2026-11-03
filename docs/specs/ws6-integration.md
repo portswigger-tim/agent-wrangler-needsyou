@@ -44,6 +44,12 @@ README.md CHANGELOG.md docs/notes/*.md
    orchestrator), settings, the limitation (status items need a board tab open,
    overview §4), privacy (items are stored in `~/.agent-wrangler/inbox.json` and kept after
    uninstall), and the trust note (extensions run with full machine access; do not soften this).
+   **Writing style (from the human):**
+   - README.md and docs/notes/testing.md are in GOV.UK plain English: short sentences, active
+     voice, "you", everyday words, the important thing first, and task or question headings.
+   - Procedures (install, testing checklist, troubleshooting) also follow ASD-STE100: one
+     imperative instruction per sentence, at most 20 words, conditions and warnings before the
+     step, expected results as separate sentences, and one word per meaning.
 4. Add the `agent-wrangler-extension` GitHub topic once the repo is public. Ask the human first,
    because it is outward-facing.
 5. **End-to-end manual checklist** (record the results in your completion mail): two parallel sessions, one
