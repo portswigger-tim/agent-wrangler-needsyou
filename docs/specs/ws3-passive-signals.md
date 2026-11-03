@@ -65,15 +65,17 @@ Pure apart from store calls. Rules:
 6. Returns `{ opened, updated, resolved }` (item ids). The handler calls `host.rebuild()` only
    if any of them is non-empty.
 
-`titleFor` mapping (exact strings, case-insensitive substring match on `waitingFor`, first match wins):
+`titleFor` mapping (case-insensitive, first match wins). Match the **phrases core emits**
+(`tmux-scraper.js`), never bare words, so a permission prompt such as "Bash: npm update" keeps
+its own text:
 
 | match | title |
 | --- | --- |
 | `waitingReason === 'api-error-blocking'` | `API error — action needed` |
 | `waitingReason === 'api-error'` | `API error — retry` |
-| `trust` | `Confirm folder trust` |
-| `login` / `oauth` / `select login method` | `Sign-in required` |
-| `update` | `Agent update needs a restart` |
+| exactly `trust dialog`, or contains `whether to trust this folder` | `Confirm folder trust` |
+| contains `select login method` / `oauth/authorize` | `Sign-in required` |
+| contains `update finished` / `cli update available` | `Agent update needs a restart` |
 | `container bring-up failed` | `Container failed to start` |
 | `permission` or anything else non-empty | `Waiting for you: <waitingFor truncated to 80>` |
 | empty / null | `Session needs you` |

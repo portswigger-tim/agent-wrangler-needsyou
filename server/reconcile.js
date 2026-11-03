@@ -36,10 +36,12 @@ export function titleFor(waitingFor, waitingReason) {
   if (waitingReason === 'api-error') return 'API error — retry';
   const text = typeof waitingFor === 'string' ? singleLine(waitingFor) : '';
   if (!text) return 'Session needs you';
+  // Phrases core itself emits (tmux-scraper.js), not bare words: a permission
+  // prompt such as "Bash: npm update" or "git log --trust" must not be retitled.
   const t = text.toLowerCase();
-  if (t.includes('trust')) return 'Confirm folder trust';
-  if (t.includes('login') || t.includes('oauth') || t.includes('select login method')) return 'Sign-in required';
-  if (t.includes('update')) return 'Agent update needs a restart';
+  if (t === 'trust dialog' || t.includes('whether to trust this folder')) return 'Confirm folder trust';
+  if (t.includes('select login method') || t.includes('oauth/authorize')) return 'Sign-in required';
+  if (/\b(update finished|cli update available)\b/.test(t)) return 'Agent update needs a restart';
   if (t.includes('container bring-up failed')) return 'Container failed to start';
   return `Waiting for you: ${clip(text, TITLE_WAITING_FOR)}`;
 }
