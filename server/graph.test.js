@@ -77,7 +77,7 @@ test('sessions: item sessions and every spawned session, with names, tasks and c
   assert.deepEqual(buildInboxGraph(host).sessions, {
     s1: { name: 'Planner', taskId: 't1', taskName: 'Inbox', spawnedBy: null, canAsk: true },
     missing: { name: '', taskId: null, taskName: '', spawnedBy: null, canAsk: true },
-    w1: { name: 'Worker', taskId: 't1', taskName: 'Inbox', spawnedBy: 's1', canAsk: true },
+    w1: { name: 'Worker', taskId: 't1', taskName: 'Inbox', spawnedBy: 's1', canAsk: false },
   });
 });
 
