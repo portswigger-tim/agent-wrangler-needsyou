@@ -20,6 +20,62 @@ export function kindLabel(kind) {
   return KIND_LABELS[kind] || 'Request';
 }
 
+// A status item's cause (contracts §2 `status.cause`, 0.1.2). An item made
+// before 0.1.2, or with a value we don't know, reads as 'other'.
+export const CAUSES = ['permission', 'question', 'trust', 'sign-in', 'update', 'container', 'api-error', 'other'];
+
+export function causeOf(item) {
+  const cause = item?.status?.cause;
+  return CAUSES.includes(cause) ? cause : 'other';
+}
+
+const CAUSE_LABELS = {
+  permission: 'Permission', question: 'Question', trust: 'Trust', 'sign-in': 'Sign-in',
+  update: 'Restart', container: 'Blocked', 'api-error': 'Blocked', other: 'Waiting',
+};
+
+// One plain-English sentence per cause: what the human should do (F2).
+const CAUSE_GUIDANCE = {
+  permission: 'The agent wants to do this and needs your approval. Open the session to allow or deny it.',
+  question: 'The agent asked you a question in its terminal. Open the session to answer it.',
+  trust: 'The agent is asking whether to trust this folder. Open the session to confirm.',
+  'sign-in': 'The agent needs you to sign in. Open the session to finish signing in.',
+  update: 'The agent was updated and needs a restart. Open the session to restart it.',
+  container: "The session's container did not start. Open the session to see the error.",
+  'api-error': 'The agent hit an API error that it cannot retry. Open the session to see it.',
+  other: 'The session is waiting for you. Open the session to see what it needs.',
+};
+
+// The label a row and the detail head show: the cause for a status item, the
+// kind for an agent request. A transient API error reads "Error".
+export function itemLabel(item) {
+  if (item?.source !== 'status') return kindLabel(item?.kind);
+  const cause = causeOf(item);
+  if (cause === 'api-error' && item.status?.waitingReason === 'api-error') return 'Error';
+  return CAUSE_LABELS[cause];
+}
+
+// The icon key (icons.js): the cause for a status item, else the kind.
+export function itemIconKey(item) {
+  return item?.source === 'status' ? `cause-${causeOf(item)}` : item?.kind;
+}
+
+// Only real failures are red.
+export const isAlarm = (item) => item?.source === 'status' && (causeOf(item) === 'container' || causeOf(item) === 'api-error');
+export const isUrgent = (item) => item?.source === 'agent' && item.urgency === 'high';
+
+export const guidanceFor = (item) => CAUSE_GUIDANCE[causeOf(item)];
+
+// Core's own phrases for a need, which say nothing the label doesn't
+// (reconcile leaves body empty for them from 0.1.2; older items still carry one).
+const CORE_PHRASES = new Set(['permission prompt', 'input needed', 'trust dialog']);
+
+// The terminal text a status item shows once, under "From the terminal".
+export function terminalText(item) {
+  const text = String(item?.body ?? '').trim();
+  return text && !CORE_PHRASES.has(text.toLowerCase()) ? text : '';
+}
+
 export function resolvedLabel(item) {
   if (item?.state === 'answered') return 'sending';
   return RESOLVED_LABELS[item?.resolvedReason] || 'resolved';
@@ -36,12 +92,12 @@ export function inboxOf(graph) {
   return inbox && Array.isArray(inbox.items) ? inbox : null;
 }
 
-// The cost-of-waiting tier: lower waits less well.
+// The cost-of-waiting tier: lower waits less well. A high-urgency request
+// sorts with the stopped sessions (F4).
 export function queueTier(item) {
-  if (isFailed(item)) return 4;
-  if (item.kind === 'blocked' || item.source === 'status') return 0;
-  if (!item.blocking) return 3;
-  return item.urgency === 'high' ? 1 : 2;
+  if (isFailed(item)) return 3;
+  if (item.kind === 'blocked' || item.source === 'status' || item.urgency === 'high') return 0;
+  return item.blocking ? 1 : 2;
 }
 
 // The queue: everything that needs action, by tier, oldest first within a
@@ -73,7 +129,10 @@ export function ageLabel(from, now = Date.now()) {
   return `${Math.floor(hours / 24)}d`;
 }
 
+// How long a live item has waited, or, once the human answered (a failed
+// delivery), how long ago they did.
 export function waitingLabel(item, now = Date.now()) {
+  if (isFailed(item)) return `answered ${ageLabel(item.answer?.at ?? item.updatedAt, now)} ago`;
   return `waiting ${ageLabel(item.createdAt, now)}`;
 }
 
@@ -85,6 +144,29 @@ function coreSessionName(graph, sessionId) {
 
 export function sessionName(graph, sessionId) {
   return inboxOf(graph)?.sessions?.[sessionId]?.name || coreSessionName(graph, sessionId) || shortId(sessionId);
+}
+
+// Whether the board lists the session as archived: core's `history` list
+// (archived cards), or a core session entry flagged archived.
+export function isArchivedSession(graph, sessionId) {
+  const history = Array.isArray(graph?.history) ? graph.history : [];
+  if (history.some((s) => s?.sessionId === sessionId)) return true;
+  const list = graph?.sessions;
+  const found = Array.isArray(list) ? list.find((s) => s?.sessionId === sessionId) : list?.[sessionId];
+  return found?.archived === true;
+}
+
+// A failed delivery, in plain words, with the session's name (F3).
+export function deliveryProblem(graph, item) {
+  const error = item?.answer?.deliveryError || '';
+  const archived = isArchivedSession(graph, item.sessionId) || /\barchived\b/i.test(error);
+  if (archived) {
+    return {
+      archived,
+      text: `Not delivered: ${sessionName(graph, item.sessionId)} is archived. Restore it from the archive, then retry, or dismiss this.`,
+    };
+  }
+  return { archived, text: error ? `Not delivered: ${error}` : 'Not delivered.' };
 }
 
 export function shortId(id) {
@@ -125,4 +207,15 @@ export function answerPayload(item, { optionId = null, text = '' } = {}) {
   if (!choice && !note) return null;
   if (note.length > 4000) return null;
   return { type: 'inbox-answer', id: item.id, ...(choice ? { optionId: choice } : {}), ...(note ? { text: note } : {}) };
+}
+
+// An action request with no options gets a Done button (F9).
+export const hasDone = (item) => item?.source === 'agent' && item.kind === 'action' && !item.options?.length;
+
+// What Done sends: free text `done`, with the human's note after it if any.
+export function donePayload(item, text = '') {
+  const note = String(text ?? '').trim();
+  const body = note ? `done\n\n${note}` : 'done';
+  if (body.length > 4000) return null;
+  return { type: 'inbox-answer', id: item.id, text: body };
 }

@@ -118,6 +118,19 @@ test('the pill shows the session\'s open count and first title, and opens that i
   assert.equal(none.el.querySelector('.ibx-pill').hidden, true);
 });
 
+test('the pill takes the warning colour while its session has an urgent request', () => {
+  const c = loadClient();
+  const p = c.pillEl('s1');
+  const plain = item();
+  c.contributions['card.pill'].update(p.el, p.session, graphOf([plain]));
+  const btn = p.el.querySelector('.ibx-pill');
+  assert.ok(!btn.classList.contains('ibx-pill-urgent'));
+  c.contributions['card.pill'].update(p.el, p.session, graphOf([plain, item({ urgency: 'high' })]));
+  assert.ok(btn.classList.contains('ibx-pill-urgent'));
+  assert.ok(btn.classList.contains('card-tag'));
+  assert.match(btn.getAttribute('aria-label'), /urgent/);
+});
+
 test('the pill title is text', () => {
   const c = loadClient();
   const g = graphOf([item({ title: '<img src=x onerror=alert(1)>' })]);

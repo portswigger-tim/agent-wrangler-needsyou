@@ -58,7 +58,9 @@
 .ibx-row.ibx-selected { background: var(--surface-2); border-color: var(--border-muted); }
 .ibx-row.ibx-leaving { opacity: 0; pointer-events: none; }
 .ibx-row-kind { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--fg-muted); min-width: 6.5em; }
-.ibx-kind-blocked .ibx-row-kind, .ibx-d-kind.ibx-kind-blocked { color: var(--red-fg, var(--red)); }
+/* Only a real failure (a container or API error) is red; other status causes
+   ask for something and keep the default colour (F1). */
+.ibx-alarm .ibx-row-kind, .ibx-d-kind.ibx-alarm { color: var(--red-fg, var(--red)); }
 .ibx-row-main { display: flex; flex-direction: column; min-width: 0; }
 .ibx-row-title { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ibx-unread .ibx-row-title { font-weight: 600; }
@@ -67,7 +69,11 @@
 .ibx-dot { width: 7px; height: 7px; border-radius: 50%; background: transparent; }
 .ibx-unread .ibx-dot { background: var(--accent); }
 .ibx-tag:empty { display: none; }
-.ibx-tag { padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 600; color: var(--red-fg, var(--fg)); background: var(--red); }
+.ibx-tag { padding: 0 6px; border-radius: 999px; font-size: 10px; font-weight: 600; line-height: 16px; border: 1px solid var(--border-muted); }
+/* Tinted chips like core's error chips: the hue on a faint fill of itself, so
+   the text reads at 4.5:1 or more in Light and Dark (F3, F4). */
+.ibx-tag-failed { color: var(--red-fg, var(--fg)); background: var(--danger-bg, var(--surface-2)); border-color: var(--danger-border, var(--red)); }
+.ibx-tag-urgent { color: var(--warn-fg, var(--fg)); background: color-mix(in srgb, var(--warn, var(--fg)) 12%, transparent); border-color: color-mix(in srgb, var(--warn, var(--fg)) 45%, transparent); }
 
 .ibx-empty { margin: 0; padding: 32px 16px; text-align: center; color: var(--fg-muted); font-size: 13px; }
 
@@ -85,14 +91,20 @@
 .ibx-detail { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
 .ibx-d-placeholder { margin: 32px 0; color: var(--fg-muted); font-size: 13px; text-align: center; }
 .ibx-d-head { display: flex; flex-direction: column; gap: 6px; }
+.ibx-d-kinds { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ibx-d-kind { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); }
 .ibx-d-title { margin: 0; font-size: 17px; font-weight: 650; overflow-wrap: anywhere; }
 .ibx-d-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 12px; color: var(--fg-muted); }
-.ibx-d-spawned { font-size: 12px; color: var(--fg-muted); }
+.ibx-d-spawned, .ibx-d-working { margin: 0; font-size: 12px; color: var(--fg-muted); }
+.ibx-d-guidance { margin: 0; font-size: 13px; line-height: var(--prose-leading, 1.55); }
+.ibx-from-terminal { display: flex; flex-direction: column; gap: 6px; }
+.ibx-from-terminal-head { margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); }
+.ibx-terminal-text { white-space: pre-wrap; font-family: var(--font-mono, monospace); font-size: 12px; }
 .ibx-body { font-size: 13px; line-height: var(--prose-leading, 1.55); overflow-wrap: anywhere; padding: 10px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border-muted); }
 .ibx-body > :first-child { margin-top: 0; }
 .ibx-body > :last-child { margin-bottom: 0; }
-.ibx-d-waiting { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+/* The answer column: options, the box, then the buttons, 12px apart (F6). */
+.ibx-d-answer, .ibx-d-status, .ibx-d-answered { display: flex; flex-direction: column; gap: 12px; }
 
 .ibx-options { display: flex; flex-direction: column; gap: 6px; }
 .ibx-option {
@@ -107,13 +119,17 @@
 .ibx-option-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ibx-option-label { font-size: 13px; overflow-wrap: anywhere; }
 .ibx-option-desc { font-size: 12px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.ibx-field { display: flex; flex-direction: column; gap: 4px; }
+.ibx-text-label { font-size: 12px; color: var(--fg-muted); }
 .ibx-text {
+  box-sizing: border-box; width: 100%;
   font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 8px; resize: vertical;
   border: 1px solid var(--border-muted); background: var(--field-bg, var(--surface)); color: var(--fg);
 }
 .ibx-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ibx-hint { font-size: 11px; color: var(--fg-muted); }
 .ibx-dismiss { margin-left: auto; }
+.ibx-dismiss.ibx-lead { margin-left: 0; }
 .ibx-confirm { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ibx-confirm-text { margin: 0; font-size: 12px; color: var(--fg-muted); }
 .ibx-answer-choice, .ibx-answer-note { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
@@ -143,6 +159,12 @@
   background: color-mix(in srgb, var(--surface-2) 88%, var(--fg) 12%);
 }
 .card-tag.ibx-pill:hover { color: var(--fg); }
+/* An urgent open request on the card: the board's warning hue (F4). */
+.card-tag.ibx-pill.ibx-pill-urgent {
+  color: var(--warn-fg, var(--fg));
+  background: color-mix(in srgb, var(--warn, var(--fg)) 18%, var(--surface-2));
+}
+.card-tag.ibx-pill.ibx-pill-urgent:hover { color: var(--warn-fg, var(--fg)); }
 
 /* ── narrow: list, then detail with Back ─────────────────────────────────── */
 @container (max-width: 899px) {

@@ -9,8 +9,8 @@
 // card.pill has one host PER CARD, so `onGraph` (the observer, deduplicated by
 // graph identity in index.js) is called from every card's update; nothing here
 // may assume it runs once per tick.
-import { inboxOf, queueOrder } from './inbox-model.js';
-import { setText, setAttr } from './inbox-dom.js';
+import { inboxOf, queueOrder, isUrgent } from './inbox-model.js';
+import { setText, setAttr, setClass } from './inbox-dom.js';
 import { ICONS } from './icons.js';
 
 export function sessionQueue(graph, sessionId) {
@@ -53,9 +53,12 @@ export function createPill({ onGraph = () => {}, onOpen = () => {} } = {}) {
       }
       btn.hidden = false;
       btn.dataset.itemId = queue[0].id;
+      // The warning colour while the session has an urgent open request (F4).
+      const urgent = queue.some((i) => i.state === 'open' && isUrgent(i));
+      setClass(btn, `card-tag ibx-pill${urgent ? ' ibx-pill-urgent' : ''}`);
       setText(btn.querySelector('.ibx-pill-count'), String(queue.length));
       setAttr(btn, 'title', queue[0].title);
-      setAttr(btn, 'aria-label', `Needs you: ${queue.length} waiting. ${queue[0].title}`);
+      setAttr(btn, 'aria-label', `Needs you: ${queue.length} waiting${urgent ? ', urgent' : ''}. ${queue[0].title}`);
     },
   };
 }

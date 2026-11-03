@@ -15,7 +15,9 @@ export function item(over = {}) {
 
 export const statusItem = (over = {}) => item({
   source: 'status', kind: 'blocked', blocking: true, allowFreeText: true, title: 'Permission prompt',
-  status: { waitingFor: 'Approve a Bash command', waitingReason: 'permission', episode: 'e1' }, ...over,
+  // reconcile copies waitingFor into body, except for core's bare phrases.
+  body: 'Approve a Bash command',
+  status: { waitingFor: 'Approve a Bash command', waitingReason: null, episode: 'e1', cause: 'permission' }, ...over,
 });
 
 export const failedItem = (over = {}) => item({
