@@ -121,12 +121,15 @@
 .ibx-terminal { flex: 1 1 auto; min-height: 360px; margin: 0 20px 16px; border: 1px solid var(--border-muted); border-radius: 8px; overflow: hidden; }
 
 /* ── card pill ───────────────────────────────────────────────────────────── */
-.ibx-pill {
-  font: inherit; font-size: 10px; padding: 2px 7px; border-radius: 999px; line-height: normal;
-  border: none; cursor: pointer; white-space: nowrap;
-  color: var(--fg); background: color-mix(in srgb, var(--accent) 22%, var(--surface-2));
+/* The card pill composes on core's .card-tag (size, padding, colour, 10px icon)
+   instead of copying it. Like core's .subagent-pill and the checklist pill (a
+   chip that is a button), the fill is nudged toward --fg, since --surface-2
+   barely shows on a card in dark mode. */
+.card-tag.ibx-pill {
+  font-family: inherit; cursor: pointer;
+  background: color-mix(in srgb, var(--surface-2) 88%, var(--fg) 12%);
 }
-.ibx-pill:hover { background: color-mix(in srgb, var(--accent) 34%, var(--surface-2)); }
+.card-tag.ibx-pill:hover { color: var(--fg); }
 
 /* ── narrow: list, then detail with Back ─────────────────────────────────── */
 @container (max-width: 899px) {

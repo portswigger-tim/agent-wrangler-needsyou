@@ -14,7 +14,7 @@ An item closes by itself when the need goes away, so the list is usually
 empty. Progress updates, finished sessions, messages between sessions and
 other news never appear in it.
 
-![The Needs you view: four waiting requests on the left, and the selected decision on the right with its context, three options and a note field](docs/notes/needs-you.png)
+![The Needs you view: the list of waiting requests on the left, and the selected decision on the right with its context, its options and a note field](docs/notes/needs-you.png)
 
 ## Install the extension
 
@@ -38,8 +38,10 @@ Then install the extension:
 7. Approve the install.
 8. If Agent Wrangler asks you to restart it, restart it.
 
-The **Needs you** button shows on the left rail. It has a badge that counts
-the items that need you. **Needs you** also shows in **Settings → Extensions**,
+The **Needs you** button (a person silhouette) shows on the left rail. It has
+a badge that counts the items that need you. A session card with items shows
+a small chip with the same silhouette and the number of items. Select the chip
+to open the first one. **Needs you** also shows in **Settings → Extensions**,
 with four settings.
 
 The extension asks for these capabilities:

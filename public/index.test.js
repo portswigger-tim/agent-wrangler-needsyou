@@ -102,7 +102,12 @@ test('the pill shows the session\'s open count and first title, and opens that i
   c.contributions['card.pill'].update(p.el, p.session, g);
   const btn = p.el.querySelector('.ibx-pill');
   assert.equal(btn.hidden, false);
-  assert.equal(btn.textContent, '📬 2');
+  assert.equal(btn.textContent, '2');
+  assert.ok(btn.classList.contains('card-tag'), 'the pill is a core card chip');
+  const svg = btn.querySelector('svg');
+  assert.ok(svg, 'the pill draws the silhouette icon');
+  assert.equal(svg.getAttribute('stroke'), 'currentColor');
+  assert.equal(svg.querySelector('circle').getAttribute('r'), '4');
   assert.equal(btn.title, 'Blocked first');
   btn.click();
   assert.deepEqual(c.navigated, ['#view=ext:needsyou:inbox']);
@@ -162,4 +167,16 @@ test('the can-ask action covers all three override states (F3)', () => {
     { type: 'inbox-set-can-ask', sessionId: 'w2', allowed: null },
     { type: 'inbox-set-can-ask', sessionId: 'off', allowed: null },
   ]);
+});
+
+test('no emoji anywhere in public/ (F16)', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const dir = path.dirname(fileURLToPath(import.meta.url));
+  const emoji = /\p{Extended_Pictographic}/u;
+  for (const f of fs.readdirSync(dir)) {
+    if (!/\.(js|css|html)$/.test(f)) continue;
+    assert.doesNotMatch(fs.readFileSync(path.join(dir, f), 'utf8'), emoji, f);
+  }
 });

@@ -34,6 +34,21 @@ enough. There is no `api.ui.notify` call and no `notifyToasts` setting. An old
 `notifyToasts` value left in config.json is ignored. Error toasts from the
 control router (a refused answer, for example) are the board's own and stay.
 
+## Icon and card chip
+
+- The rail button and the card pill use one person-silhouette SVG
+  (`ICONS.inbox`), in the board's icon style (24 × 24, stroke `currentColor`).
+  There is no emoji anywhere in `public/` (a test checks).
+- The pill is `<button class="card-tag ibx-pill">`. `card-tag` is core's chip
+  class (`public/cards.js` on agent-wrangler main, checked 2026-11-03), so the
+  pill takes the size, padding, colours and the 10 px icon size of the other
+  chips in every theme. `ibx-pill` adds only the pointer cursor and the
+  slightly stronger fill that core's own button chips (`.subagent-pill`, the
+  checklist pill) use, because `--surface-2` barely shows on a dark card.
+- The icon is 10 px, not the 12 to 14 px the fixes spec suggested, because core's
+  `.card-tag svg` rule sizes every chip icon to 10 px. Matching the other chips
+  was the stated aim.
+
 ## Layout
 
 - The narrow layout uses a container query on `.ibx-root` (< 900 px), not a
