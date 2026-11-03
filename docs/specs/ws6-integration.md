@@ -46,6 +46,8 @@ README.md CHANGELOG.md docs/notes/*.md
    whose question arrives at the orchestrator by mail; answer the decision from "Needs you"; approve
    the permission in the terminal; check that both close, the badge goes to 0 and the toasts
    withdraw.
+   Also settle WS-3's open question: have a Claude session call `AskUserQuestion`, and record
+   whether the graph shows `needs-you` and what `waitingFor` says.
 6. Write `docs/notes/<area>.md` for each WS's non-obvious decisions, and link them from
    `AGENTS.md`. The orchestrator forwards each worker's completion mail. Editing `AGENTS.md` for
    this is the one exception to WS-1 owning it.
