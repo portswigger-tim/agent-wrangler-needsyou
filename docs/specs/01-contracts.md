@@ -7,7 +7,7 @@ If a worker finds a problem here, it messages the orchestrator.
 
 - Extension id: **`inbox`**. The directory name, `package.json` `wranglerExtension.id` and the
   runtime manifest `id` must all match.
-- Label `Inbox`. Description: "A mailbox of the decisions and actions your sessions need from you."
+- Label `Needs you`. Description: "A triage queue of the decisions and actions your sessions need from you." The id stays `inbox`.
 - `engines.wranglerApi: "^1.57.0"` in both `package.json` and the manifest.
 - `requires`, identical in both places:
   `["sessions:read", "tasks:read", "deliver", "board:rebuild", "board:broadcast"]`
@@ -22,7 +22,7 @@ If a worker finds a problem here, it messages the orchestrator.
 
 ```js
 export default {
-  id: 'inbox', label: 'Inbox', description, help, author: 'PortSwigger', defaultEnabled: true,
+  id: 'inbox', label: 'Needs you', description, help, author: 'PortSwigger', defaultEnabled: true,
   engines: { wranglerApi: '^1.57.0' }, dir,
   requires: [...as above],
   stores: { inbox: (bag) => new InboxStore({ file: inboxFile(bag), getSettings: () => bag.settings }) }, // WS-1
