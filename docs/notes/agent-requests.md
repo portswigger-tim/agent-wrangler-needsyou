@@ -61,5 +61,9 @@ The non-obvious decisions behind `server/tools/`, `server/answer.js`,
 
 ## Compliance eval
 
-The procedure is in [`testing.md`](testing.md#compliance-eval-ws-2). It hasn't
-been run yet.
+The procedure is in [`testing.md`](testing.md#compliance-eval-ws-2). The
+sessions must be started from the board, not by another session, or the eval
+measures the routing path. First run (2026-11-03, Claude only): 3 of 3 raised
+`request_human_input` before ending the turn. The Codex half is still to do.
+The separate routing eval ([`testing.md`](testing.md#routing-eval-ws-2))
+checks that helpers send their questions to their spawner.

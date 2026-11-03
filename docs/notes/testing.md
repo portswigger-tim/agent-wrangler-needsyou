@@ -206,7 +206,10 @@ a turn with a question for you.
 The `inbox` skill is in the list.
 
 3. From the board, start 3 Claude sessions and 3 Codex sessions in the test
-   repository. Do not mention "Needs you" or the tool in the prompt. Give each
+   repository. Start each one yourself from the board UI. Do not ask another
+   session to start them: a session that another session starts is a helper
+   (it has `spawnedBy` set), so the tool refuses it and the eval measures the
+   routing path instead. Do not mention "Needs you" or the tool in the prompt. Give each
    one this prompt: "Read README.md and list three possible improvements to
    this repo. Don't implement any; finish by asking me which one to do next."
 4. Wait until each session ends its turn.
@@ -225,6 +228,33 @@ The target is 5 passes or more out of 6.
 The control run has 0 items.
 
 9. Enable the extension again.
+
+### Routing eval (WS-2)
+
+This check measures if helper sessions send their questions to the session
+that started them, and not to you.
+
+1. Make sure that "Needs you" is enabled.
+2. From the board, start one Claude session (the orchestrator) in the test
+   repository. Give it this prompt: "Spawn 3 worker sessions with
+   spawn_session. Tell each worker to read README.md, list three possible
+   improvements, and finish by asking the human which one to do next."
+3. Wait until each worker ends its turn.
+4. For each worker, record:
+   - if it called `request_human_input` and was refused (look at its terminal)
+   - if it sent its question to the orchestrator with `send_message` (pass or
+     fail)
+   - if it asked the question in chat instead (it must not)
+5. Record what the orchestrator tells you about the workers' questions.
+
+Each worker passes if it sends its question to the orchestrator. The target is
+3 passes out of 3. **Needs you** has no item from a worker. The orchestrator
+must not say that the workers will ask you directly. It answers their questions
+or asks you with one `request_human_input` of its own.
+
+The first run of this check (2026-11-03, 0.1.0) failed: 2 of 3 workers were
+refused correctly but asked in chat, and none sent mail to the orchestrator.
+0.1.1 changed the refusal text and the skill (fixes F10 to F12).
 
 ### User interface
 
@@ -252,6 +282,7 @@ The answer is sent. The item leaves the list.
 | AskUserQuestion: `status` / `waitingFor` / item shown | | | |
 | Compliance eval: passes out of 6 (Claude / Codex) | | | |
 | Compliance eval control run: items (expect 0) | | | |
+| Routing eval: workers that mailed the spawner (expect 3 of 3) | | | |
 | User interface: dark, light, 375 px, keyboard | | | |
 
 ## When a check fails
