@@ -54,6 +54,38 @@ line. `boot-smoke.sh` ends with `dev-smoke: all expectations met`.
 temporary data folder, a temporary home folder and a free port, and it deletes
 them at the end. To keep the folder for debugging, set `AW_SMOKE_KEEP=1`.
 
+### Screenshot walk-through (e2e)
+
+`e2e/` takes a screenshot of every interruption type in a real browser, so you
+can judge the layout, the wording and the flow. It has its own `package.json`,
+so Playwright is never installed with the extension.
+
+What it covers:
+- the empty queue
+- each status need: permission prompt, `AskUserQuestion`, folder trust,
+  sign-in, agent update, container failure and a blocking API error
+- each agent request kind: decision, approval, question and action
+- the refused worker, and the card menu that allows it to ask
+- the queue, and the detail of every item
+- a choice with a note, the dismiss confirmation and the `n` key
+- a failed delivery, then needs that clear on their own and the read-only
+  resolved view
+- the Light theme and a 375 px width
+
+To get the status needs, it rewrites the graph frames that the browser receives.
+The real observer, reconcile and view then run unchanged. It never clicks a card
+or **Open session**, and it answers only an archived card, so it does not start
+an agent.
+
+1. In `e2e/`, run `npm ci --ignore-scripts`. It uses Playwright's cached
+   Chromium. If you do not have it, run `npx playwright-core install chromium`.
+2. Run `AW_REPO=<agent-wrangler checkout> e2e/run.sh`.
+3. Open `e2e/screens/`. `INDEX.txt` says what each screenshot shows.
+
+The script ends with exit code 0 when every expectation is met. To look at the
+board yourself, set `E2E_SERVE=1`. The script then prints the board URL and
+waits.
+
 ## Manual checks
 
 ### Before you start

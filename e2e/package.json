@@ -1,0 +1,12 @@
+{
+  "name": "agent-wrangler-needsyou-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Screenshot walk-through of every Needs you interruption type, in a throwaway Agent Wrangler. Kept apart from the extension so Playwright is never installed with it.",
+  "scripts": {
+    "screens": "./run.sh"
+  },
+  "devDependencies": {
+    "playwright-core": "1.54.2"
+  }
+}
