@@ -48,21 +48,30 @@ inputSchema: {
 ```
 
 Behaviour:
-0. **Who may ask** (contracts §8): call `canAsk(host, store, caller)` first. If not allowed, return
-   an error result:
-   *"You can't ask the human directly: this session was launched by another session. Send your
-   question to it with send_message (to: "<spawnedBy>"), including the context and options it
-   needs."*
-   The refusal never creates an item.
+0. **Who may ask** (contracts §8): call `canAsk(host, store, caller)` first. If it is not allowed,
+   return an error result. The refusal never creates an item, and it doesn't count towards the
+   rate limit.
+   - With a spawner: *"You can't ask the human directly: this session was launched by another
+     session. Send your question to it with send_message (to: "<spawnedBy>"), including the context
+     and options it needs."*
+   - Without one (the human turned it off): *"The human has turned off direct requests from this
+     session. Decide using your brief and sensible defaults, or stop and explain in chat what you
+     need."*
 1. `validateAgentRequest` (WS-1 `item.js`) is the only validator. Map snake_case to the item fields.
-2. If `dedupe_key` matches an open item **of the same session**, resolve the old item as
-   `superseded` and create the new one. A matching key from another session is a separate namespace:
-   store keys as `agent:<sid>:<key>`.
-3. Enforce `maxOpenPerSession`. On breach, the error must tell the agent to withdraw or wait.
+2. **Same question again:** if `dedupe_key` matches an open item **of the same session**, update
+   that item in place with `store.update`. It keeps its id and read state, raises no new toast, and
+   returns the existing id. Store keys as `agent:<sid>:<key>`, so another session's key is a
+   separate namespace. This is what keeps "each need surfaces once" true for agent requests.
+3. **Limits:**
+   - The store enforces `maxOpenPerSession`. Catch its error and return it with advice: withdraw an
+     old request, or wait for answers.
+   - **Rate limit:** at most 3 **new** item ids per session per 10 minutes, tracked in memory in
+     the tool module. Dedupe updates and refusals don't count. On breach: *"Too many separate
+     requests — batch related questions into one request with options."*
 4. `taskId` comes from `host.sessions.get(caller)?.taskId ?? null`.
 5. Return `{ id, state: 'open', blocking }` plus, as the text result, an instruction:
-   *"Request queued in the human's Inbox. If blocking, end your turn now; the answer will arrive
-   as a message starting `[Inbox]`."*
+   *"Request queued in the human's "Needs you" queue. If blocking, end your turn now; the answer
+   will arrive as a message starting `[Needs you]`."*
 
 The description must say plainly: **use only when you cannot proceed correctly without the human's
 decision or action. Never for status updates, summaries, or "done" notices.** Include one good and
@@ -70,13 +79,14 @@ one bad example.
 
 ### `withdraw_human_request`
 
-`{ id: string, reason?: string(≤200) }`. Only the caller's own open/answered item. It resolves as
+`{ id: string }`. Only the caller's own open item, or an answered one whose delivery is not
+`delivered`. It resolves as
 `withdrawn` and returns `{ id, state }`. An unknown id or another session's item → error
 "not your request".
 
 ### `list_my_human_requests`
 
-No args. Returns the caller's items from the last 24 h:
+No args. Returns the caller's open and answered items, plus items resolved in the last 24 h:
 `[{ id, kind, title, state, resolvedReason, answer: { optionId, text } | null }]`. This lets an agent
 that missed the delivered text (compaction, restart) recover its answer.
 
@@ -116,7 +126,7 @@ decide/approve/act". The body:
   options and a recommendation in the body.
 - **How:** name the `request_human_input` tool explicitly. Give a 1-line title, a body with
   context, your recommendation, and 2–4 options. If blocking, end your turn right after the call.
-- **On `[Inbox]` messages:** treat them as the human's answer to that id and continue.
+- **On `[Needs you]` messages:** treat them as the human's answer to that id and continue.
 - **If you get the answer elsewhere** (the human typed in the terminal): call `withdraw_human_request`.
 - Recovery: call `list_my_human_requests` after a restart.
 - **If the tool refuses because another session launched you:** send the question to that session
@@ -126,22 +136,24 @@ decide/approve/act". The body:
 
 ## Acceptance criteria
 
-- [ ] Unit tests (fake host) cover: happy path, every validation failure, dedupe supersede (same
-      session only), per-session cap, withdraw of a foreign item refused, list scoping, answer
+- [ ] Unit tests (fake host) cover: happy path, every validation failure, dedupe updates in place
+      (same id, `readAt` kept, same session only), per-session cap, rate limit (dedupe updates and
+      refusals exempt), withdraw of a foreign item refused, list scoping, answer
       with option / text / both / invalid, delivery success → `resolved:delivered`, delivery failure →
       `failed` with error and retry, retry cap.
 - [ ] The delivered text matches contracts §6 byte-for-byte for a fixture (snapshot test).
 - [ ] `canAsk` tests:
       - the default is allowed with no `spawnedBy` and refused with it
       - overrides win in both directions; `null` restores the default
-      - the refusal text names the spawner id
+      - the refusal text names the spawner id, and the no-spawner variant is used when the human
+        turned a top-level session off
       - a refused call creates nothing
       - no tool can change an override
 - [ ] Compliance eval, in the style of agent-wrangler's adversarial-review measurement: 3 Claude + 3 Codex
       runs of a task that ends with a choice of next steps. Record how many call `request_human_input`
-      before ending the turn (target ≥ 5/6) in the PR description.
+      before ending the turn (target ≥ 5/6) in your completion mail to the orchestrator.
 - [ ] The tool descriptions contain the "never for status updates" sentence. A test asserts this,
       so later edits keep it.
 - [ ] No session parameter on any tool. A test asserts every inputSchema lacks `session`/`sessionId`.
 - [ ] Manual: in a dev wrangler, a Claude session that follows the skill raises a request, the item
-      appears in `graph.inbox`, and answering via a raw `inbox-answer` frame delivers `[Inbox] …` to its pane.
+      appears in `graph.inbox`, and answering via a raw `inbox-answer` frame delivers `[Needs you] …` to its pane.

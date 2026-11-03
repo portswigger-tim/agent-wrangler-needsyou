@@ -1,6 +1,6 @@
-# Inbox — product & architecture overview
+# Needs you — product & architecture overview
 
-Status: **Draft v2** (streamlined, extension-only) · Owner: product (orchestrator session) · Target: Agent Wrangler host API `^1.57.0`
+Status: **Draft v3** (extension-only) · Owner: product (orchestrator session) · Target: Agent Wrangler host API `^1.57.0`
 
 ## 1. Problem
 
@@ -16,7 +16,7 @@ output that does *not* need the human, which buries the real asks.
 A **"Needs you"** view (extension id `needsyou`): a triage queue listing only what needs the human to
 **decide or act**, ordered by the cost of waiting. It is glanceable like a live feed, self-clearing
 and usually empty, and is worked one item at a time with **Next**.
-"New mail" appears only when a new decision or action is **required**. Everything else stays out:
+An item appears only when a new decision or action is **required**. Everything else stays out:
 progress, finished sessions, peer mail, FYIs.
 
 This is built as an **external extension, with no changes to Agent Wrangler**.
@@ -27,7 +27,7 @@ This is built as an **external extension, with no changes to Agent Wrangler**.
    exactly one open item within ~4 s.
 2. An agent can raise a structured decision with one MCP tool call. The answer reaches that
    session without the human opening its terminal.
-3. Items close themselves when the need goes away. The inbox never shows a stale "action required".
+3. Items close themselves when the need goes away. "Needs you" never shows a stale "action required".
 4. Each need surfaces **once**. Polls, reloads, restarts and several tabs never re-announce it.
 5. Sessions spawned by another session cannot ask the human directly unless the human allows it.
    They are told to ask their orchestrator.
@@ -36,7 +36,7 @@ This is built as an **external extension, with no changes to Agent Wrangler**.
 
 ### Non-goals (v1)
 
-- Answering core `needs-you` prompts (e.g. approving a permission) from the inbox. v1 links to
+- Answering core `needs-you` prompts (e.g. approving a permission) from "Needs you". v1 links to
   the session.
 - Inferring decisions from chat text. An extension has no transcript access. We rely on the skill
   rule (WS-2) and measure compliance first.
@@ -44,7 +44,7 @@ This is built as an **external extension, with no changes to Agent Wrangler**.
   worker and points it at its orchestrator over existing mail.
 - Email, Slack or phone push, and events for other extensions. Planned for v1.1 (§8).
 
-## 3. What counts as "mail"
+## 3. What appears in "Needs you"
 
 | Source | Trigger | Item kind | Closes when |
 | --- | --- | --- | --- |
@@ -91,7 +91,7 @@ framed as an untrusted peer message that invites a reply to a non-session addres
             ┌──────────────────────── agent session (Claude/Codex) ────────────────────────┐
             │ MCP: request_human_input / withdraw_human_request / list_my_human_requests    │
             └──────────────┬───────────────────────────────────────────▲────────────────────┘
-                           │ tool call (caller = card id)               │ host.deliver(sid, "[Inbox] …")
+                           │ tool call (caller = card id)               │ host.deliver(sid,"[Needs you] …")
 ┌──────────────────────────▼────────────────── server half ─────────────┴───────────────────┐
 │ tools/ (WS-2) ──► InboxStore (WS-1) ◄── reconcile.js (WS-3) ◄── handlers/observe (WS-3)    │
 │   (canAsk check)    ▲      │  ▲                                                             │
@@ -100,7 +100,7 @@ framed as an untrusted peer message that invites a reply to a non-session addres
 └──────────────────────────────────────────────────────────────┬─────────────────────────────┘
                                                                │ graph.inbox / api.send(...)
 ┌──────────────────────────────────────────── client half ─────▼─────────────────────────────┐
-│ public/index.js (WS-4): view "Inbox" + badge · card.pill · card.action · api.ui.notify       │
+│ public/index.js (WS-4): view "Needs you" + badge · card.pill · card.action · api.ui.notify   │
 │ public/observer.js (WS-3): diff graph.sessions → api.send('inbox-observe', snapshot)         │
 └──────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -123,7 +123,7 @@ Design rules:
 | WS-1 Foundation & store | `ws1-foundation.md` | — | — | package.json, index.js, server/manifest.js, server/store.js, server/item.js, server/data-dir.js, server/atomic-json.js, server/graph.js, server/handlers/index.js, server/handlers/read.js, server/test-helpers.js, test-setup.js, AGENTS.md, CLAUDE.md, **stubs** for every other WS file |
 | WS-2 Agent requests | `ws2-agent-requests.md` | WS-1 | WS-3, WS-4, WS-5 | server/tools/**, server/answer.js, server/can-ask.js, server/handlers/answer.js, skills/inbox/** |
 | WS-3 Passive signals | `ws3-passive-signals.md` | WS-1 | WS-2, WS-4, WS-5 | public/observer.js, server/reconcile.js, server/handlers/observe.js |
-| WS-4 Inbox UI | `ws4-inbox-ui.md` | WS-1 | WS-2, WS-3, WS-5 | public/index.js, public/inbox-*.js, public/icons.js, public/styles.css |
+| WS-4 "Needs you" UI | `ws4-inbox-ui.md` | WS-1 | WS-2, WS-3, WS-5 | public/index.js, public/inbox-*.js, public/icons.js, public/styles.css |
 | WS-5 Lifecycle & retention | `ws5-lifecycle.md` | WS-1 | WS-2, WS-3, WS-4 | server/lifecycle.js, server/sweeps.js |
 | WS-6 Integration & release | `ws6-integration.md` | WS-2..5 | — | scripts/**, .github/**, README.md, docs/notes/**, CHANGELOG.md |
 
@@ -135,23 +135,28 @@ WS-1 ──┬──► WS-2 ──┐
 ```
 
 - **Scripts and CI hand-over:** WS-1 creates the first `scripts/validate-manifest.mjs` and
-  `.github/workflows/test.yml`. Ownership of both passes to WS-6 once WS-1 is merged.
+  `.github/workflows/test.yml`. Ownership of both passes to WS-6 once WS-1 is merged. No other
+  workstream edits them.
 - **File ownership is exclusive.** A worker edits only files its spec owns. WS-1 creates stubs
   with the contracted exports, so `server/manifest.js` never changes after WS-1. A worker that
   needs anything else (including a contract change) messages the orchestrator rather than editing.
-- **Branches and PRs:** each worker uses a git worktree on branch `ws<N>-<slug>` from `main`, with
-  one PR per workstream titled `[WS-N] …`.
+- **Branches and merging:** the repo has no git remote, so there are no PRs. Each worker works in
+  a git worktree on branch `ws<N>-<slug>` from `main` and commits there. When done, it mails the
+  orchestrator: the branch, the commit sha, the test output, and any decisions or deviations.
+  The orchestrator reviews, merges into `main` and tells the next workers. Each worker's
+  completion mail is also the source for WS-6's `docs/notes/`.
 
 ## 7. How to issue a spec to a worker session
 
 Spawn one board session per workstream (worktree on, cwd = this repo), with this prompt:
 
-> You are the WS-N worker for the Agent Wrangler Inbox extension. Read `docs/specs/00-overview.md`,
-> `docs/specs/01-contracts.md` and `docs/specs/wsN-*.md` in full before writing code, and
-> `AGENTS.md` too. Implement only the files your spec owns, meet every acceptance criterion,
-> run `npm test`, and open a PR titled `[WS-N] …`. If a contract seems wrong or you need a file
-> you don't own, stop and `send_message` the orchestrator (card `<orchestrator id>`) instead of
-> working around it.
+> You are the WS-N worker for the "Needs you" Agent Wrangler extension (id `needsyou`). Read
+> `docs/specs/00-overview.md`, `docs/specs/01-contracts.md` and `docs/specs/wsN-*.md` in full
+> before writing code, and `AGENTS.md` too. Implement only the files your spec owns, meet every
+> acceptance criterion, run `npm test`, and commit on your branch. Then `send_message` the
+> orchestrator (card `<orchestrator id>`) with the branch, commit sha, test output and any
+> decisions or deviations. If a contract seems wrong or you need a file you don't own, stop and
+> message the orchestrator instead of working around it.
 
 ## 8. After v1
 

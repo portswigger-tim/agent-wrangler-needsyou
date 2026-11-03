@@ -7,7 +7,7 @@ sweep and `onTaskDelete` for shape.
 
 ## Goal
 
-Inbox items never outlive the thing they are about, and the store stays bounded.
+Items never outlive the thing they are about, and the store stays bounded.
 
 ## Owned files
 
@@ -40,4 +40,5 @@ server/sweeps.js     server/sweeps.test.js      # export const inboxSweeps = [re
       leaves other sessions alone; purge removes; expiry; retention boundary (exactly N days kept,
       N days + 1 ms removed); open items are never removed; rebuild only on change; a throwing store is
       swallowed.
-- [ ] Manual: archive a card with an open request. The item moves to Done with "Session archived".
+- [ ] Manual: archive a card with an open request. The item leaves the queue and shows in
+      "Recently resolved" as "session archived".

@@ -34,23 +34,25 @@ README.md CHANGELOG.md docs/notes/*.md
    - calls `request_human_input` as a caller whose session has `spawnedBy` set, gets the refusal
      naming the spawner, then sends `inbox-set-can-ask` and sees the same call succeed
    - exits 1 on any failed expectation.
-3. **README**: what it is, a screenshot, the install (Settings → Extensions → Git URL), what counts
-   as mail (overview §3, as a table), settings, the limitation (status items need a board tab open,
+3. **README**: what it is, a screenshot, the install (Settings → Extensions → Git URL), what
+   appears in "Needs you" (overview §3, as a table), who may ask (spawned sessions go through their
+   orchestrator), settings, the limitation (status items need a board tab open,
    overview §4), privacy (items are stored in `~/.agent-wrangler/inbox.json` and kept after
    uninstall), and the trust note (extensions run with full machine access; do not soften this).
 4. Add the `agent-wrangler-extension` GitHub topic once the repo is public. Ask the human first,
    because it is outward-facing.
-5. **End-to-end manual checklist** (record the results in the PR): two parallel sessions, one
+5. **End-to-end manual checklist** (record the results in your completion mail): two parallel sessions, one
    permission prompt, one `request_human_input` decision, and one worker spawned by an orchestrator
-   whose question arrives at the orchestrator by mail; answer the decision from the inbox; approve
+   whose question arrives at the orchestrator by mail; answer the decision from "Needs you"; approve
    the permission in the terminal; check that both close, the badge goes to 0 and the toasts
    withdraw.
-6. Write `docs/notes/<area>.md` for each WS's non-obvious decisions (harvest them from the PR
-   descriptions), and link them from `AGENTS.md`.
+6. Write `docs/notes/<area>.md` for each WS's non-obvious decisions, and link them from
+   `AGENTS.md`. The orchestrator forwards each worker's completion mail. Editing `AGENTS.md` for
+   this is the one exception to WS-1 owning it.
 
 ## Acceptance criteria
 
 - [ ] CI green, including boot-smoke against agent-wrangler `main`.
 - [ ] Fresh install from the git URL on a clean data dir works, with the consent modal listing the
-      5 capabilities.
+      4 capabilities (`sessions:read`, `tasks:read`, `deliver`, `board:rebuild`).
 - [ ] The manual e2e checklist passes.

@@ -14,7 +14,7 @@ A **triage queue** of what is stuck on the human right now. It is glanceable lik
 (self-clearing, usually empty) and is worked like a queue (most important first, decide in place,
 move to the next).
 
-The headline number is **how much is waiting on you**, not unread mail. Items leave on their own
+The headline number is **how much is waiting on you**, not an unread count. Items leave on their own
 when the need is resolved, by the human, the agent or the terminal. The extension id is
 `needsyou`, the user-facing name is **"Needs you"**, and internal names keep `inbox` (contracts §1).
 
@@ -24,7 +24,7 @@ when the need is resolved, by the human, the agent or the terminal. The extensio
 public/index.js            # register(reg): view + card.pill + observer wiring + notify
 public/inbox-view.js       # view mount/update/unmount; pure render helpers exported for tests
 public/inbox-dom.js        # keyed in-place list patching (no full innerHTML rebuilds)
-public/inbox-notify.js     # new-mail detection + api.ui.notify
+public/inbox-notify.js     # new-item detection + api.ui.notify
 public/inbox-pill.js       # card.pill: "📬 N" on cards with open items
 public/inbox-can-ask.js    # card.action: allow/stop a spawned session asking the human
 public/icons.js            # inline SVGs (an extension cannot import core's icons.js)
@@ -54,7 +54,9 @@ The badge counts **open items** (contracts §4 `open`), not unread ones, and is 
    the title (ellipsis), session name · task name, and a **waiting-for** age ("waiting 12m").
    Unread items carry a small dot, but unread doesn't change the order.
 3. **Recently resolved** strip below the queue, collapsed by default: resolved items from the last
-   24 h, with the reason ("answered", "cleared in terminal", "withdrawn"). It is there for
+   24 h, with the reason. Labels: `delivered` "answered", `withdrawn` "withdrawn by agent",
+   `answered-elsewhere` "answered in the session", `status-cleared` "resolved in the session",
+   `dismissed` "dismissed", `session-archived` "session archived", `expired` "expired". It is there for
    reassurance, not as an archive. An item resolving while it is selected fades out, and selection
    moves to the next item.
 4. Empty state: "Nothing needs you right now." (no illustration needed).

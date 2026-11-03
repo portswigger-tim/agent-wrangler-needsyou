@@ -1,4 +1,4 @@
-# Inbox — shared contracts
+# Needs you — shared contracts
 
 These contracts are the interface between workstreams. **Only the orchestrator changes this file.**
 If a worker finds a problem here, it messages the orchestrator.
@@ -15,7 +15,8 @@ If a worker finds a problem here, it messages the orchestrator.
   types), is `needsyou`.
 - `engines.wranglerApi: "^1.57.0"` in both `package.json` and the manifest.
 - `requires`, identical in both places:
-  `["sessions:read", "tasks:read", "deliver", "board:rebuild", "board:broadcast"]`
+  `["sessions:read", "tasks:read", "deliver", "board:rebuild"]`. Nothing broadcasts: the client
+  reads the graph, and handlers use `reply` only for errors. Don't request what isn't used.
 - `defaultEnabled: true`.
 - Dependencies: runtime `zod` only, so `package-lock.json` is mandatory; dev `happy-dom`.
 - Root `index.js` only re-exports `server/manifest.js`
@@ -55,8 +56,7 @@ type State  = 'open' | 'answered' | 'resolved';
 type ResolvedReason =
   | 'delivered'           // agent item: answer reached the session
   | 'withdrawn'           // agent called withdraw_human_request
-  | 'answered-elsewhere'  // blocking agent item; session went working with no inbox answer
-  | 'superseded'          // agent raised a new request with the same dedupeKey
+  | 'answered-elsewhere'  // blocking agent item; session went working with no answer from us
   | 'status-cleared'      // status item: session left needs-you
   | 'dismissed'           // human dismissed
   | 'session-archived'
@@ -90,7 +90,8 @@ interface Item {
 }
 ```
 
-- **Unread ("new mail"):** `state === 'open' && readAt === null`.
+- **Unread:** `state === 'open' && readAt === null`. It only decides toasts and the row dot,
+  never the order or the badge.
 - **Needs action:** `state === 'open'`, or an `answered` item whose delivery `failed`.
 - **Validation:** `validateAgentRequest(args) -> { ok, value | error }` and `normaliseItem(raw)`
   enforce every limit, and nowhere else does.
@@ -109,7 +110,9 @@ class InboxStore {
   openForSession(sessionId): Item[]
   findOpenByDedupe(dedupeKey): Item | null
   create(fields): Item                                   // fields per §2 minus id/state/timestamps/readAt/answer/resolvedReason
-  update(id, patch: { title?, status? }): Item           // in place; never touches readAt
+  update(id, patch): Item                                // open items only; in place; keeps id and readAt
+                                                         // patch ⊆ { title, body, options, allowFreeText, blocking,
+                                                         //   urgency, expiresAt, status }, all validated as in create
   markRead(ids: string[]): number
   answer(id, { optionId?, text? }): Item                 // open -> answered, delivery 'pending'
   setDelivery(id, { delivery, deliveryError? }): Item    // success -> resolved('delivered')
@@ -161,7 +164,7 @@ Handlers are `{ type, handler(msg, host, reply) }`. Each mutation ends with
 | `inbox-answer` | `{ id, optionId?, text? (≤4000) }` | WS-2 `handlers/answer.js` | `store.answer`, then `deliverAnswer` (§6) |
 | `inbox-retry` | `{ id }` | WS-2 `handlers/answer.js` | re-deliver an `answered` + `failed` item |
 | `inbox-set-can-ask` | `{ sessionId, allowed: boolean \| null }` | WS-2 `handlers/answer.js` | `setCanAskOverride`; `null` restores the default |
-| `inbox-observe` | `{ sessions: ObservedSession[], complete: true }` | WS-3 `handlers/observe.js` | `reconcile(store, sessions, settings)` |
+| `inbox-observe` | `{ sessions: ObservedSession[], complete: true }` | WS-3 `handlers/observe.js` | `reconcile(store, sessions, { settings, now })` → `{ opened, updated, resolved }` |
 
 ```ts
 interface ObservedSession { sessionId: string; status: string; waitingFor: string | null; waitingReason: string | null; updatedAt: number | null }
@@ -181,7 +184,7 @@ entries, strings ≤500 chars.
 Text format:
 
 ```
-[Inbox] The human answered your request "<title>" (<item id>).
+[Needs you] The human answered your request "<title>" (<item id>).
 Choice: <option label> (<option id>)        ← omitted when no option
 Note: <free text>                           ← omitted when empty
 ```
@@ -204,6 +207,9 @@ peer message inviting a `send_message` reply to an address that isn't a session.
 `canAsk(host, store, sessionId) -> { allowed: boolean, spawnedBy: string | null }`:
 1. A store override (`true`/`false`) wins.
 2. Otherwise `allowed = !host.sessions.get(sessionId)?.spawnedBy`.
+
+`spawnedBy` is always returned, so the refusal can name the spawner, or say the human turned
+direct requests off when there is no spawner.
 
 The human sets overrides from the card menu (WS-4 → `inbox-set-can-ask`). No agent can.
 

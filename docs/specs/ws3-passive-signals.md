@@ -8,8 +8,8 @@ seeding rule), `public/app.js` around `trackJustFinished`/`isAcknowledged`.
 
 ## Goal
 
-Turn core's `needs-you` session status into inbox items, and close them when the status clears, so
-the inbox mirrors reality with no duplicates across tabs or restarts. Also apply the
+Turn core's `needs-you` session status into items, and close them when the status clears, so
+"Needs you" mirrors reality with no duplicates across tabs or restarts. Also apply the
 "answered-elsewhere" rule to blocking agent items.
 
 ## Owned files
@@ -31,7 +31,7 @@ server/handlers/observe.js server/handlers/observe.test.js
 - `stop()` unsubscribes. The module must be importable under node (no top-level DOM access).
 - Several tabs will send the same snapshot. That is expected, and the server is idempotent.
 
-## Server: `reconcile(store, observed, { settings, now })` → `{ opened, resolved }`
+## Server: `reconcile(store, observed, { settings, now })` → `{ opened, updated, resolved }`
 
 Pure apart from store calls. Rules:
 
@@ -41,14 +41,17 @@ Pure apart from store calls. Rules:
    `dedupeKey = 'status:' + episode`. One session has at most one open status item.
 2. **Open.** For each observed session with `status === 'needs-you'` and no open status item: skip
    it if `waitingReason === 'api-error'` and `includeTransientApiErrors` is not `true`. Skip it if
-   the most recent status item for that session was `dismissed` **and** the session has not left
-   `needs-you` since. To track that, keep an in-memory `Map<sessionId, dismissedEpisode>`, cleared
-   when an observation shows the session out of `needs-you`. Otherwise create a status item:
+   this episode was dismissed. Two checks, so a restart can't bring a dismissed item back:
+   - **persistent:** a resolved `dismissed` item already has this episode's `dedupeKey`
+     (`status:<sid>:<observed.updatedAt>`)
+   - **in-process:** a `Map<sessionId, true>` set on dismissal and cleared when an observation
+     shows the session out of `needs-you`. It covers `updatedAt` drifting within one episode. Otherwise create a status item:
    `kind:'blocked'`, `title` from `titleFor(waitingFor, waitingReason)` (below),
    `body` = `waitingFor` (markdown-escaped), `blocking:true`, `urgency` = `'high'` for
    `api-error-blocking`, else `'normal'`.
 3. **Update.** If an open status item exists and `waitingFor` changed, update `status.waitingFor`
-   and the title in place. This does **not** reset `readAt`, so it is not new mail.
+   and the title in place with `store.update`. This does **not** reset `readAt`, so it isn't
+   announced again.
 4. **Resolve.** For every open status item whose session is in the snapshot with a status other
    than `needs-you`, resolve it as `status-cleared`. Because `complete: true`, a session **absent**
    from the snapshot is resolved too, as `status-cleared`. Archive is WS-5's job, but absence covers
@@ -59,7 +62,8 @@ Pure apart from store calls. Rules:
    `answered-elsewhere`. Track that the session was seen non-working after creation, so an item
    created mid-turn isn't killed by that same turn: require the sequence created → observed
    idle/needs-you → observed working.
-6. Returns what changed. The handler calls `host.rebuild()` only if something changed.
+6. Returns `{ opened, updated, resolved }` (item ids). The handler calls `host.rebuild()` only
+   if any of them is non-empty.
 
 `titleFor` mapping (exact strings, case-insensitive substring match on `waitingFor`, first match wins):
 
@@ -88,7 +92,8 @@ server-side source can call the same function.
 ## Acceptance criteria
 
 - [ ] Reconcile tests: open on needs-you; no duplicate on a repeated snapshot (×3 "tabs"); title/
-      waitingFor update without unread reset; resolve on status change; resolve on absence; transient
+      waitingFor update without unread reset; dismissed episode stays dismissed across a simulated
+      restart (fresh in-memory state, same store); resolve on status change; resolve on absence; transient
       api-error excluded/included per setting; dismissed episode not re-opened until status clears,
       then re-opened on the next episode; answered-elsewhere honours the grace and the
       idle→working sequence; setting off disables it.

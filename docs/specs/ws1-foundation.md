@@ -26,8 +26,10 @@ server/data-dir.js server/atomic-json.js
 server/graph.js server/graph.test.js
 server/handlers/index.js              # export const inboxHandlers = [...readHandlers, ...answerHandlers, ...observeHandlers]
 server/handlers/read.js server/handlers/read.test.js
-server/test-helpers.js                # fakeHost({ sessions, tasks, settings, deliver }) with spies on rebuild/deliver/broadcast
-.github/workflows/test.yml            # npm ci && npm test on Node 20 and 22
+server/test-helpers.js                # fakeHost({ sessions, tasks, settings, deliver }): stores.inbox, settings.get/all,
+                                      #   sessions.get/list, tasks.get, deliver, rebuild, log; spies on rebuild and deliver
+.github/workflows/test.yml            # npm ci && npm test on Node 22 and 24 (handed to WS-6 after merge)
+scripts/validate-manifest.mjs         # first version (handed to WS-6 after merge)
 ```
 
 ## Stubs you create, which other workstreams own
@@ -40,7 +42,7 @@ Each stub must load and export the contracted name with an inert value:
 | `server/handlers/answer.js` | `export const answerHandlers = [];` |
 | `server/handlers/observe.js` | `export const observeHandlers = [];` |
 | `server/answer.js` | `export async function deliverAnswer() { throw new Error('not implemented'); }` |
-| `server/reconcile.js` | `export function reconcile() { return { opened: [], resolved: [] }; }` |
+| `server/reconcile.js` | `export function reconcile() { return { opened: [], updated: [], resolved: [] }; }` |
 | `server/lifecycle.js` | `export const lifecycleHooks = {};` |
 | `server/sweeps.js` | `export const inboxSweeps = [];` |
 | `server/can-ask.js` | `export function canAsk() { return { allowed: true, spawnedBy: null }; }` |
@@ -60,6 +62,8 @@ Each stub starts with the comment `// Owned by WS-N — stub from WS-1.`, or the
    `newItemId`). Titles are trimmed, newlines in the title collapse to spaces, options get unique
    ids, and an empty `options` array forces `allowFreeText = true`.
 3. `store.js` implements contracts §3 exactly, with an injectable `now` and `idGen` for tests.
+   - `update` accepts only the contracted patch fields, validates them like `create`, refuses a
+     non-open item, and keeps `id` and `readAt`.
    - Atomic writes. Corrupt-file recovery as specified.
    - The `create` cap and per-session cap behave as specified. `maxOpenPerSession` is read from a
      `getSettings` function passed in by the factory (the store-factory bag has a read-through
@@ -77,7 +81,11 @@ Each stub starts with the comment `// Owned by WS-N — stub from WS-1.`, or the
      `{ name: '', taskId: null, taskName: '', spawnedBy: null, canAsk: true }`.
 5. `handlers/read.js` implements `inbox-mark-read` and `inbox-dismiss` with payload validation
    (unknown ids are ignored for mark-read; dismiss of an unknown id throws `unknown inbox item`).
-6. `npm test` runs `node --test --import ./test-setup.js 'server/**/*.test.js' 'public/**/*.test.js'`.
+6. `npm test` runs every `*.test.js` under `server/` and `public/`, **including subdirectories**
+   (`server/handlers/`, `server/tools/`):
+   `node --test --import ./test-setup.js 'server/**/*.test.js' 'public/**/*.test.js'`, with the
+   globs quoted so Node expands them (Node ≥ 21). That is why CI runs Node 22 and 24. Add a test
+   that fails if a nested test file is not picked up, e.g. one under `server/handlers/`.
 7. `AGENTS.md` covers the repo's purpose, the no-import rule, file ownership (from overview §6),
    the commands, the dev-install recipe (copy into `<AW_DATA_DIR>/extensions/needsyou`, never
    symlink), and the confirmed `sweeps` entry shape.
