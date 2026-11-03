@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Window } from 'happy-dom';
 import { createClient } from './index.js';
-import { canAskItems } from './inbox-can-ask.js';
 import { item, statusItem, failedItem, graphOf } from '../test/fixtures/inbox.js';
 
 // The module the wrangler imports from /ext/needsyou/index.js, registered the
@@ -137,49 +136,6 @@ test('the pill title is text', () => {
   const p = c.pillEl('s1');
   c.contributions['card.pill'].update(p.el, p.session, g);
   assert.equal(p.el.querySelectorAll('img').length, 0);
-});
-
-test('the can-ask action covers all three override states (F3)', () => {
-  const sent = [];
-  const api = { send: (f) => sent.push(f) };
-  const g = graphOf([], {
-    sessions: {
-      human: { name: 'Mine', spawnedBy: null, canAsk: true, canAskOverride: null },
-      w1: { name: 'Worker', spawnedBy: 'o1', canAsk: false, canAskOverride: null },
-      w2: { name: 'Worker 2', spawnedBy: 'o1', canAsk: true, canAskOverride: true },
-      w3: { name: 'Worker 3', spawnedBy: 'o1', canAsk: false, canAskOverride: false },
-      off: { name: 'Muted', spawnedBy: null, canAsk: false, canAskOverride: false },
-    },
-  });
-  assert.deepEqual(canAskItems({ sessionId: 'human' }, g, api), []);
-  assert.deepEqual(canAskItems({ sessionId: 'unknown' }, g, api), []);
-
-  // null: the default, one item, no "Use default".
-  const nul = canAskItems({ sessionId: 'w1' }, g, api);
-  assert.deepEqual(nul.map((i) => [i.label, i.hint]), [['Allow asking the human directly', 'default']]);
-  nul[0].run();
-
-  // true: the human allowed it.
-  const yes = canAskItems({ sessionId: 'w2' }, g, api);
-  assert.deepEqual(yes.map((i) => [i.label, i.hint]), [['Route questions to orchestrator', 'allowed by you'], ['Use default', 'route to orchestrator']]);
-  yes[0].run();
-  yes[1].run();
-
-  // false: same effective value as the default, but not "default".
-  const no = canAskItems({ sessionId: 'w3' }, g, api);
-  assert.deepEqual(no.map((i) => [i.label, i.hint]), [['Allow asking the human directly', 'turned off by you'], ['Use default', 'route to orchestrator']]);
-
-  // A top-level session with an override still reaches "Use default".
-  const muted = canAskItems({ sessionId: 'off' }, g, api);
-  assert.deepEqual(muted.map((i) => [i.label, i.hint]), [['Allow asking the human directly', 'turned off by you'], ['Use default', 'ask directly']]);
-  muted[1].run();
-
-  assert.deepEqual(sent, [
-    { type: 'inbox-set-can-ask', sessionId: 'w1', allowed: true },
-    { type: 'inbox-set-can-ask', sessionId: 'w2', allowed: false },
-    { type: 'inbox-set-can-ask', sessionId: 'w2', allowed: null },
-    { type: 'inbox-set-can-ask', sessionId: 'off', allowed: null },
-  ]);
 });
 
 test('no emoji anywhere in public/ (F16)', async () => {

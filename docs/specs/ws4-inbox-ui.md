@@ -66,13 +66,19 @@ The badge counts **open items** (contracts §4 `open`), not unread ones, and is 
 5. Status items for sessions with `spawnedBy` set show "spawned by <spawner name>", from
    `graph.inbox.sessions`, so the human has context.
 
-**"Can ask the human" card action** (`public/inbox-can-ask.js`, a `card.action` value slot):
-- **When it shows:** only on cards whose session has `spawnedBy` set (read from
-  `graph.inbox.sessions[sid]`).
-- **Label:** "Allow asking the human directly" when `canAsk` is false, and "Route questions to
-  orchestrator" when it is true.
-- **Click:** sends `inbox-set-can-ask { sessionId, allowed: !canAsk }`.
-- **Hint:** "default" when there is no override. Restoring the default is not needed in v1.
+**"Can ask the human" card action** (`public/inbox-can-ask.js`, a `card.action` value slot).
+Since 0.1.2 (F7) it is one item on every card listed in `graph.inbox.sessions`, with the
+person-silhouette icon. The label names the state it moves to, and the hint names the current
+state:
+
+| Session | Override | Label | Hint | Click sends `allowed` |
+| --- | --- | --- | --- | --- |
+| spawned | none | Let it ask you directly | asks its orchestrator | `true` |
+| spawned | allowed | Send its questions to the orchestrator | asks you directly | `null` |
+| top-level | none | Stop it asking you directly | asks you directly | `false` |
+| top-level | refused | Let it ask you directly | blocked by you | `null` |
+
+There is no separate "Use default" item: clearing the override (`null`) is always the way back.
 
 *Detail pane* for the selected item:
 - Title, kind, the session (a link button → `api.openSession(sessionId)`), task, age.

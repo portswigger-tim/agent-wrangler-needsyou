@@ -167,9 +167,25 @@ it (`20`). Nothing shows that `blocking: false` requests leave their session wor
 - A non-blocking request shows "The agent is still working." under the detail header.
 **Acceptance:** a view test, and e2e `20`.
 
+### F11 (P2): A resolved item has no action buttons
+**Problem:** the read-only resolved view (0.1.1 F15) shows **Open session** and **Back to queue**
+(`26`). The human says neither is needed. The session name in the header already opens the
+session, and the queue is in the list beside it. On a phone, the view's own **Back** button
+returns to the list.
+**Change:**
+- Remove both buttons from the resolved view (`public/inbox-view.js`, the resolved-detail actions).
+  Keep the header's session link, and the "Closed: <reason> · <time>" line.
+- Remove any code, CSS and keyboard handling that only those buttons used. The resolved view
+  keeps ignoring `e` and the number keys.
+- Status items in the queue keep their **Open session** button. Only resolved items lose it.
+**Acceptance:**
+- View tests: a resolved item renders no buttons in its detail, apart from the header session link.
+- e2e `26` shows no button row.
+- At 375 px, **Back** still returns to the list.
+
 ### F10 (P3): Version and changelog
 **Change:** bump to 0.1.2 in both `package.json` and the lockfile. Add a CHANGELOG entry that lists
-F1–F9.
+F1–F9 and F11.
 
 ## How the fixes run
 
