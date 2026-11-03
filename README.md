@@ -100,6 +100,11 @@ Use these keys in the **Needs you** view:
 Sometimes a session cannot accept your answer, for example because it is
 archived. Then the item stays in the list and shows **Retry**.
 
+Items that closed in the last 24 hours are under **Recently resolved**, below
+the list. Select one to see what was asked, what you chose and how it closed.
+You cannot change a closed item. When **Recently resolved** is open, `j` and
+`k` move into it too.
+
 ## Which sessions can ask you
 
 A session that you started can ask you directly.

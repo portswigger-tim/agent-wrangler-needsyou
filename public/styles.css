@@ -74,9 +74,10 @@
 .ibx-recent { margin: 8px 6px 12px; border-top: 1px solid var(--border-muted); padding-top: 6px; }
 .ibx-recent-summary { cursor: pointer; font-size: 11px; color: var(--fg-subtle, var(--fg-muted)); padding: 4px 6px; }
 .ibx-recent-list { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; }
-.ibx-recent-row { display: grid; grid-template-columns: 6.5em 1fr auto; gap: 8px; padding: 4px 10px; font-size: 12px; color: var(--fg-muted); }
-.ibx-recent-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ibx-recent-reason { white-space: nowrap; font-size: 11px; }
+/* Strip rows are .ibx-row (the queue row's layout), toned down. */
+.ibx-recent-row .ibx-row-title { color: var(--fg-muted); }
+.ibx-recent-row.ibx-selected .ibx-row-title { color: var(--fg); }
+.ibx-recent-reason { white-space: nowrap; }
 
 /* ── detail pane ─────────────────────────────────────────────────────────── */
 .ibx-detail-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow-y: auto; }
@@ -117,6 +118,18 @@
 .ibx-confirm-text { margin: 0; font-size: 12px; color: var(--fg-muted); }
 .ibx-answer-choice, .ibx-answer-note { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
 .ibx-delivery { margin: 0; font-size: 12px; color: var(--fg-muted); }
+
+/* Read-only view of a resolved item (F15). */
+.ibx-d-readonly { display: flex; flex-direction: column; gap: 12px; }
+.ibx-ro-options { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ibx-ro-option {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-muted); background: var(--surface); color: var(--fg-muted);
+}
+.ibx-ro-option.ibx-chosen { color: var(--fg); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.ibx-ro-chosen { flex: 0 0 auto; font-size: 11px; font-weight: 600; color: var(--fg); }
+.ibx-d-closed { margin: 0; font-size: 12px; color: var(--fg-muted); }
+.ibx-d-closed-reason { color: var(--fg); }
 .ibx-delivery-failed { color: var(--red-fg, var(--red)); }
 .ibx-terminal { flex: 1 1 auto; min-height: 360px; margin: 0 20px 16px; border: 1px solid var(--border-muted); border-radius: 8px; overflow: hidden; }
 

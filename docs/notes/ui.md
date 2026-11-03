@@ -56,15 +56,34 @@ control router (a refused answer, for example) are the board's own and stay.
 - Status items have a **Show terminal here** toggle (`api.mountSession`).
 - Colour comes only from the board's CSS variables, so both themes work.
 
-## Known v1 limits
+## Recently resolved (read-only view)
 
-- The card-menu hint can't tell "the default" from "an explicit override",
-  because the graph has no override flag. It shows the effective value.
+- Strip rows use the queue row's layout (kind, title, session, then the reason
+  and "Nm ago" where a queue row has its dot, tag and age).
+- Selecting one opens it in the detail pane read-only (0.1.1, F15): kind,
+  title, session and task, the body (sanitised markdown), the options with the
+  chosen one marked, the note, the `waitingFor` text for a status item, and how
+  and when it closed (reason label, a `<time>` with the absolute local time,
+  and a relative age the tick keeps moving). The only buttons are **Open
+  session** and **Back to queue**. `e` and the number keys do nothing there.
+- "Read-only" is anything resolved, or answered and still sending. A failed
+  delivery is back in the queue with **Retry**.
+- `j`/`k` walk the queue and then the strip, but only while the strip is
+  expanded. A resolved item stays selected across ticks. A queued item that
+  leaves the queue still moves the selection on, as before.
+- **Back to queue** selects the top of the queue (or nothing, if it is empty)
+  and focuses its row.
+
+## Card menu and spawner names
+
 - A spawner's name comes from `graph.inbox.sessions`, which lists every
   listed session's spawner (0.1.1). It falls back to `graph.sessions`, then
   to a short id.
 - The card menu's "can ask" item reads `canAskOverride`: the hint is "default"
   only when it is `null`, and **Use default** (`allowed: null`) shows only when
   an override exists, including on a top-level session the human turned off.
+
+## Known limits
+
 - `public/inbox-fixtures.js` is test-only but is served under `/ext/needsyou/`.
   It's harmless.

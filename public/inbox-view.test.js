@@ -110,8 +110,13 @@ test('the recently resolved strip is collapsed and labels each reason', () => {
   assert.equal(strip.hidden, false);
   assert.equal(strip.open, false);
   assert.equal(text(v.q('.ibx-recent-summary')), 'Recently resolved (3)');
-  const reasons = [...v.el.querySelectorAll('.ibx-recent-reason')].map(text);
-  assert.deepEqual(reasons, ['answered · 1m ago', 'withdrawn by agent · 2m ago', 'resolved in the session · 3m ago']);
+  const recentRows = [...v.el.querySelectorAll('.ibx-recent-list .ibx-row')];
+  assert.deepEqual(recentRows.map((r) => text(r.querySelector('.ibx-recent-reason'))), ['answered', 'withdrawn by agent', 'resolved in the session']);
+  assert.deepEqual(recentRows.map((r) => text(r.querySelector('.ibx-row-age'))), ['1m ago', '2m ago', '3m ago']);
+  // The same layout as a queue row: kind, title, session.
+  assert.equal(text(recentRows[2].querySelector('.ibx-row-kind-label')), 'Blocked');
+  assert.equal(text(recentRows[0].querySelector('.ibx-row-title')), 'A');
+  assert.equal(text(recentRows[2].querySelector('.ibx-row-meta')), 'Worker · Auth');
   assert.equal(v.rows().length, 0);
   assert.equal(v.q('.ibx-empty').hidden, false);
 });
@@ -387,4 +392,131 @@ test('selecting an item that has not arrived yet selects it when it does', () =>
   assert.equal(v.view.select(a.id, { focus: true }), false);
   v.view.update(graphOf([a]));
   assert.equal(v.view.selectedId, a.id);
+});
+
+/* ── F15: a resolved item opens read-only ─────────────────────────────────── */
+
+const ANSWER_CONTROLS = '.ibx-option, .ibx-text, .ibx-send, .ibx-dismiss, .ibx-confirm, .ibx-retry, .ibx-terminal-toggle';
+
+test('a resolved agent item opens read-only: options with the choice marked, the note, how and when it closed', () => {
+  const v = mountView();
+  const live = item({ createdAt: 1 });
+  const done = item({
+    title: 'Ship it?', body: 'Context **here**', createdAt: 2 * MIN, updatedAt: 15 * MIN,
+    state: 'resolved', resolvedReason: 'delivered',
+    options: [{ id: 'yes', label: 'Yes', description: 'Ship now' }, { id: 'no', label: 'No' }],
+    answer: { optionId: 'yes', text: 'after lunch', at: 14 * MIN, delivery: 'delivered', deliveryError: null, attempts: 1 },
+  });
+  v.view.update(graphOf([live, done]));
+  v.q('.ibx-recent').open = true;
+  v.el.querySelector(`.ibx-recent-list .ibx-row[data-id="${done.id}"]`).click();
+  assert.equal(v.view.selectedId, done.id);
+  assert.ok(v.q(`.ibx-recent-list .ibx-row[data-id="${done.id}"]`).classList.contains('ibx-selected'));
+  assert.ok(v.q('.ibx-d-readonly'));
+  assert.equal(text(v.q('.ibx-d-title')), 'Ship it?');
+  assert.match(text(v.q('.ibx-d-kind')), /Decision/);
+  assert.equal(text(v.q('.ibx-d-session')), 'Worker');
+  assert.equal(text(v.q('.ibx-d-task')), 'Auth');
+  assert.equal(text(v.q('.ibx-d-age')), 'asked 18m ago');
+  assert.ok(v.q('.ibx-body .md'), 'the body is sanitised markdown, as for open items');
+  const opts = [...v.el.querySelectorAll('.ibx-ro-option')];
+  assert.deepEqual(opts.map((o) => text(o.querySelector('.ibx-option-label'))), ['Yes', 'No']);
+  assert.ok(opts[0].classList.contains('ibx-chosen'));
+  assert.equal(text(opts[0].querySelector('.ibx-ro-chosen')), 'Your choice');
+  assert.ok(!opts[1].classList.contains('ibx-chosen'));
+  assert.equal(text(v.q('.ibx-answer-note')), 'Your note: after lunch');
+  assert.equal(text(v.q('.ibx-d-closed-reason')), 'Closed: answered');
+  assert.equal(v.q('.ibx-d-closed-at').getAttribute('datetime'), new Date(15 * MIN).toISOString());
+  assert.equal(text(v.q('.ibx-d-closed-age')), '5m ago');
+  assert.equal(v.el.querySelectorAll(ANSWER_CONTROLS).length, 0, 'no answer, dismiss or retry controls');
+  assert.deepEqual([...v.el.querySelectorAll('.ibx-d-readonly button')].map(text), ['Open session', 'Back to queue']);
+
+  v.press('e');
+  v.press('1');
+  assert.equal(v.sent.filter((f) => f.type !== 'inbox-mark-read').length, 0, 'e and 1-6 do nothing on a read-only item');
+
+  // The tick moves the relative time, and the selection stays put.
+  v.tick(MIN);
+  v.view.update(graphOf([live, done]));
+  assert.equal(v.view.selectedId, done.id);
+  assert.equal(text(v.q('.ibx-d-closed-age')), '6m ago');
+
+  v.q('.ibx-open-session').click();
+  assert.deepEqual(v.opened, ['s1']);
+  v.q('.ibx-back-queue').click();
+  assert.equal(v.view.selectedId, live.id, 'Back to queue returns to the top of the queue');
+  assert.equal(v.document.activeElement, v.rows()[0]);
+});
+
+test('a dismissed agent item shows how it closed and no answer', () => {
+  const v = mountView();
+  const d = item({ title: 'Never mind', state: 'resolved', resolvedReason: 'dismissed', updatedAt: 19 * MIN });
+  v.view.update(graphOf([d]));
+  assert.equal(v.view.select(d.id), true);
+  assert.equal(text(v.q('.ibx-d-closed-reason')), 'Closed: dismissed');
+  assert.equal(v.q('.ibx-ro-options'), null);
+  assert.equal(v.q('.ibx-answer-note'), null);
+  assert.equal(v.el.querySelectorAll(ANSWER_CONTROLS).length, 0);
+  v.q('.ibx-back-queue').click();
+  assert.equal(v.view.selectedId, null, 'an empty queue leaves nothing selected');
+  assert.equal(v.document.activeElement, v.root);
+});
+
+test('a cleared status item shows its waitingFor, read-only, with no terminal toggle', () => {
+  const v = mountView();
+  const s = statusItem({ state: 'resolved', resolvedReason: 'status-cleared', updatedAt: 18 * MIN });
+  v.view.update(graphOf([s]));
+  v.view.select(s.id);
+  assert.equal(text(v.q('.ibx-d-waiting')), 'Approve a Bash command');
+  assert.equal(text(v.q('.ibx-d-closed-reason')), 'Closed: resolved in the session');
+  assert.equal(v.el.querySelectorAll(ANSWER_CONTROLS).length, 0);
+  assert.equal(v.mounts.length, 0);
+});
+
+test('j/k continue from the queue into the strip only when it is expanded', () => {
+  const v = mountView();
+  const a = item({ createdAt: 1 });
+  const r1 = item({ state: 'resolved', resolvedReason: 'withdrawn', updatedAt: 19 * MIN });
+  const r2 = item({ state: 'resolved', resolvedReason: 'expired', updatedAt: 18 * MIN });
+  v.view.update(graphOf([a, r1, r2]));
+  v.root.focus();
+  v.press('j');
+  v.press('j');
+  assert.equal(v.view.selectedId, a.id, 'collapsed: the strip is out of reach');
+  v.q('.ibx-recent').open = true;
+  v.press('j');
+  assert.equal(v.view.selectedId, r1.id);
+  assert.equal(v.document.activeElement, v.q(`.ibx-recent-list .ibx-row[data-id="${r1.id}"]`));
+  v.press('j');
+  assert.equal(v.view.selectedId, r2.id);
+  v.press('j');
+  assert.equal(v.view.selectedId, r2.id, 'stops at the end');
+  v.press('k');
+  v.press('k');
+  assert.equal(v.view.selectedId, a.id);
+  // Enter on a read-only item focuses Open session.
+  v.press('j');
+  v.root.focus();
+  v.press('Enter');
+  assert.equal(v.document.activeElement, v.q('.ibx-open-session'));
+});
+
+test('agent text in a read-only item stays inert', () => {
+  const v = mountView();
+  const d = item({
+    title: XSS, body: XSS, state: 'resolved', resolvedReason: 'delivered',
+    options: [{ id: 'a', label: XSS, description: XSS }],
+    answer: { optionId: 'a', text: XSS, at: 1, delivery: 'delivered', deliveryError: null, attempts: 1 },
+  });
+  const s = statusItem({ title: XSS, state: 'resolved', resolvedReason: 'status-cleared', status: { waitingFor: XSS, waitingReason: null, episode: 'e' } });
+  v.view.update(graphOf([d, s], { sessions: { s1: { name: XSS, taskName: XSS } } }));
+  v.q('.ibx-recent').open = true;
+  v.view.select(d.id);
+  assert.equal(v.el.querySelectorAll('img').length, 0);
+  assert.equal(text(v.q('.ibx-ro-option .ibx-option-label')), XSS);
+  assert.equal(text(v.q('.ibx-answer-note')), `Your note: ${XSS}`);
+  v.view.select(s.id);
+  assert.equal(v.el.querySelectorAll('img').length, 0);
+  assert.equal(text(v.q('.ibx-d-waiting')), XSS);
+  assert.equal(globalThis.pwned, undefined);
 });
