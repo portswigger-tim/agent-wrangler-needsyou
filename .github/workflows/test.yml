@@ -57,6 +57,33 @@ jobs:
 
       - run: npm test
 
+  # The same verification gate as the local hooks (.pre-commit-config.yaml), so
+  # a commit made with --no-verify, or from a clone without hooks, still can't
+  # reach main unchecked.
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: needsyou
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: needsyou/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: npm ci --ignore-scripts
+
+      - run: pip install pre-commit
+
+      - run: pre-commit run --all-files --show-diff-on-failure
+
   # Boots agent-wrangler main with this checkout copied in as
   # extensions/needsyou, on a throwaway data dir and port, and drives it over
   # the control WS and /mcp as a board tab and an agent would. No session is

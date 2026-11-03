@@ -6,7 +6,10 @@
   "description": "A triage queue of the decisions and actions your sessions need from you. An Agent Wrangler extension.",
   "license": "MIT",
   "scripts": {
-    "test": "node --test --import ./test-setup.js 'server/**/*.test.js' 'public/**/*.test.js'"
+    "test": "node --test --import ./test-setup.js 'server/**/*.test.js' 'public/**/*.test.js'",
+    "lint": "eslint --max-warnings 0 .",
+    "check:lockfile": "node scripts/check-lockfile.mjs",
+    "verify": "npm run check:lockfile && npm run lint && npm test"
   },
   "wranglerExtension": {
     "id": "needsyou",
@@ -28,6 +31,9 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
     "happy-dom": "^21.0.4"
   },
   "engines": {

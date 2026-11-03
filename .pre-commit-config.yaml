@@ -1,0 +1,76 @@
+# Verification gate for this repo. CI runs the same hooks (`pre-commit run --all-files`).
+#
+# One-time setup in each clone, which installs every hook type below:
+#   pre-commit install
+#
+# Stages:
+#   pre-commit, pre-merge-commit: hygiene, secrets, lockfile, lint, unit tests
+#   pre-push: also runs the real Agent Wrangler loader (needs AW_REPO; CI always runs it)
+default_install_hook_types: [pre-commit, pre-merge-commit, pre-push]
+default_stages: [pre-commit, pre-merge-commit, pre-push]
+fail_fast: false
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: detect-private-key
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      # Machine-specific paths must never reach a shared repo.
+      - id: no-local-paths
+        name: no absolute local paths
+        language: pygrep
+        entry: '(/Users/[A-Za-z]|/home/[a-z][a-z0-9_-]*/|/private/tmp/|/private/var/folders/)'
+        exclude: '^(package-lock\.json|\.pre-commit-config\.yaml)$'
+
+      - id: lockfile-in-sync
+        name: package-lock.json matches package.json
+        language: system
+        entry: node scripts/check-lockfile.mjs
+        files: '^package(-lock)?\.json$'
+        pass_filenames: false
+
+      - id: eslint
+        name: eslint
+        language: system
+        entry: npx --no-install eslint --max-warnings 0
+        types_or: [javascript]
+        files: '\.(js|mjs)$'
+
+      # Unit tests always run: a change to a spec, skill or manifest can break them too.
+      - id: npm-test
+        name: unit tests (npm test)
+        language: system
+        entry: npm test --silent
+        pass_filenames: false
+        always_run: true
+
+      # The real loader, MCP server and import scanner. Skipped with a warning
+      # when AW_REPO is not set locally; CI sets it on every run.
+      - id: validate-manifest
+        name: real Agent Wrangler loader (AW_REPO)
+        language: system
+        entry: scripts/validate-if-aw-repo.sh
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

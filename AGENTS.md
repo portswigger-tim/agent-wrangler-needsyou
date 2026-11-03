@@ -130,6 +130,36 @@ WS-1 wrote the first `scripts/validate-manifest.mjs` and `.github/workflows/test
 pass to WS-6 once WS-1 is merged. The other workstreams' files start as WS-1 stubs that export
 the contracted names, so `server/manifest.js` never has to change.
 
+## Verification gate
+
+Nothing lands on `main` without passing the gate. It runs in two places:
+- **Local git hooks** (`.pre-commit-config.yaml`), on commit, merge commit and push.
+- **CI's `gate` job**, which runs the same hooks on every push and PR, so `--no-verify` or a
+  clone without hooks can't bypass it.
+
+Set it up once per clone (each worktree shares the clone's hooks):
+
+```sh
+npm ci --ignore-scripts
+pre-commit install          # installs the pre-commit, pre-merge-commit and pre-push hooks
+```
+
+| Hook | Stage | What it stops |
+| --- | --- | --- |
+| pre-commit-hooks | commit, merge, push | trailing whitespace, missing final newline, CRLF, merge markers, case clashes, bad YAML/JSON, files over 1 MB, shebang/mode mismatches, private keys |
+| gitleaks | commit, merge, push | secrets and tokens |
+| no-local-paths | commit, merge, push | absolute paths from one machine (macOS user or temp folders, Linux home folders) in any tracked file. Write a placeholder such as `<AW_DATA_DIR>` instead |
+| lockfile-in-sync | when `package*.json` change | a `package-lock.json` that doesn't match `package.json`. Agent Wrangler refuses such installs, and `npm ci --dry-run` doesn't catch it |
+| eslint | when JS changes | correctness errors such as unused or undefined names (`eslint.config.js`) |
+| npm-test | every commit | any failing unit test, including the manifest/package agreement and forbidden-import scan |
+| validate-manifest | push | the real Agent Wrangler loader and MCP server. Needs `AW_REPO`; without it the hook says so and passes, and CI's `test` job always runs it |
+
+- `npm run verify` runs the lockfile check, lint and tests without git.
+- `pre-commit run --all-files` runs the whole gate on demand.
+- Never commit with `--no-verify` to get past a failure: fix the cause. CI will refuse it anyway.
+- When a hook auto-fixes files (whitespace, newlines), the commit stops. Review the changes,
+  `git add` them and commit again.
+
 ## Commands
 
 - `npm test` runs `node --test --import ./test-setup.js 'server/**/*.test.js' 'public/**/*.test.js'`.
