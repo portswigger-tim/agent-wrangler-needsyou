@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  queueOrder, queueTier, recentItems, kindLabel, resolvedLabel, ageLabel, waitingLabel,
+  queueOrder, queueTier, closedOrder, closedAt, closedLabel, filteredList, sessionName, kindLabel, resolvedLabel, ageLabel, waitingLabel,
   sessionMeta, spawnedByLabel, nextAfter, answerPayload, stopsWork, causeOf, itemLabel, itemIconKey, isAlarm,
   isUrgent, guidanceFor, terminalText, hasDone, donePayload, deliveryProblem,
 } from './inbox-model.js';
@@ -42,12 +42,54 @@ test('queueOrder leaves out resolved items and answers still being delivered', (
   assert.deepEqual(queueOrder([pending, done, open]).map((i) => i.id), [open.id]);
 });
 
-test('recentItems lists resolved and in-flight answers, newest first', () => {
-  const a = item({ state: 'resolved', resolvedReason: 'dismissed', updatedAt: 5 });
-  const b = item({ state: 'answered', answer: { delivery: 'pending' }, updatedAt: 9 });
-  const c = item({ state: 'open' });
-  const d = failed();
-  assert.deepEqual(recentItems([a, b, c, d]).map((i) => i.id), [b.id, a.id]);
+test('closedAt is updatedAt for a resolved item and answer.at for one still sending', () => {
+  assert.equal(closedAt(item({ state: 'resolved', resolvedReason: 'expired', createdAt: 1, updatedAt: 70 })), 70);
+  assert.equal(closedAt(item({ state: 'answered', updatedAt: 90, answer: { delivery: 'pending', at: 80 } })), 80);
+});
+
+test('closedOrder sorts by when each item closed, newest first, not by when it was asked', () => {
+  // Asked first, closed last: it leads.
+  const askedFirst = item({ state: 'resolved', resolvedReason: 'delivered', createdAt: 1, updatedAt: 50 });
+  const askedLast = item({ state: 'resolved', resolvedReason: 'dismissed', createdAt: 40, updatedAt: 45 });
+  const sending = item({ state: 'answered', createdAt: 2, updatedAt: 99, answer: { delivery: 'pending', at: 48 } });
+  const open = item({ createdAt: 0 });
+  const fail = failed({ updatedAt: 100 });
+  assert.deepEqual(closedOrder([askedLast, open, sending, fail, askedFirst]).map((i) => i.id),
+    [askedFirst.id, sending.id, askedLast.id], 'open items and failed deliveries are not closed');
+  const twinB = item({ id: 'ibx_b', state: 'resolved', updatedAt: 5 });
+  const twinA = item({ id: 'ibx_a', state: 'resolved', updatedAt: 5 });
+  assert.deepEqual(closedOrder([twinB, twinA]).map((i) => i.id), ['ibx_a', 'ibx_b'], 'id breaks a tie');
+});
+
+test('filteredList: Open is the queue, Closed the closed order, All the one then the other', () => {
+  const blocked = item({ source: 'status', kind: 'blocked', createdAt: 9 });
+  const normal = item({ createdAt: 1 });
+  const fail = failed({ createdAt: 0 });
+  const old = item({ state: 'resolved', resolvedReason: 'delivered', updatedAt: 10 });
+  const recent = item({ state: 'resolved', resolvedReason: 'expired', updatedAt: 20 });
+  const all = [old, fail, normal, recent, blocked];
+  assert.deepEqual(filteredList('open', all).map((i) => i.id), [blocked.id, normal.id, fail.id]);
+  assert.deepEqual(filteredList('closed', all).map((i) => i.id), [recent.id, old.id]);
+  assert.deepEqual(filteredList('all', all).map((i) => i.id), [blocked.id, normal.id, fail.id, recent.id, old.id]);
+  assert.deepEqual(filteredList('bogus', all).map((i) => i.id), filteredList('open', all).map((i) => i.id), 'an unknown filter is Open');
+});
+
+test('closedLabel says when it closed, or that it is sending', () => {
+  assert.equal(closedLabel(item({ state: 'resolved', updatedAt: 0 }), 5 * 60_000), 'closed 5m ago');
+  assert.equal(closedLabel(item({ state: 'answered', answer: { delivery: 'pending', at: 0 } }), 5 * 60_000), 'sending');
+});
+
+test("sessionName falls back to the core card's label, then name, then the short id", () => {
+  const inbox = { items: [], sessions: {} };
+  assert.equal(sessionName({ inbox, sessions: [{ sessionId: 'b4c9473a-7111', label: 'Fix the login page' }] }, 'b4c9473a-7111'), 'Fix the login page');
+  assert.equal(sessionName({ inbox, sessions: [{ sessionId: 'b4c9473a-7111', name: 'Named' }] }, 'b4c9473a-7111'), 'Named');
+  assert.equal(sessionName({ inbox, sessions: [{ sessionId: 'b4c9473a-7111', label: '  ' }] }, 'b4c9473a-7111'), 'b4c9473a');
+  const withInbox = { inbox: { items: [], sessions: { s: { name: 'Ours' } } }, sessions: [{ sessionId: 's', label: 'Core' }] };
+  assert.equal(sessionName(withInbox, 's'), 'Ours', "graph.inbox's name comes first");
+  const long = 'x'.repeat(80);
+  const clipped = sessionName({ inbox, sessions: [{ sessionId: 's', label: long }] }, 's');
+  assert.equal(clipped.length, 60);
+  assert.ok(clipped.endsWith('…'));
 });
 
 test('labels', () => {

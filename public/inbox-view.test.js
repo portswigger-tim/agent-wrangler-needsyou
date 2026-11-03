@@ -9,7 +9,7 @@ const XSS = '<img src=x onerror="globalThis.pwned=1">';
 
 // Mounted the way slots.js mounts a `view`: an `.ext-view` host the board
 // toggles `hidden` on, holding the contribution's own `.ext-slot` element.
-function mountView({ api: over = {}, twoPanes } = {}) {
+function mountView({ api: over = {}, twoPanes, storage, beforeMount } = {}) {
   const window = new Window({ url: 'http://localhost:7777/' });
   const { document } = window;
   const host = document.createElement('div');
@@ -36,11 +36,13 @@ function mountView({ api: over = {}, twoPanes } = {}) {
     ...over,
   };
   let clock = 20 * MIN;
+  beforeMount?.(window);
   const view = createInboxView(el, api, {
     now: () => clock, leaveMs: 0,
     schedule: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
     cancel: () => {},
     twoPanes,
+    ...(storage !== undefined ? { storage } : {}),
   });
   const root = el.querySelector('.ibx-root');
   const press = (key, opts = {}) => {
@@ -52,7 +54,8 @@ function mountView({ api: over = {}, twoPanes } = {}) {
   return {
     window, document, host, el, root, view, api, sent, opened, mounts, timers, press,
     tick: (ms) => { clock += ms; },
-    rows: () => [...el.querySelectorAll('.ibx-queue .ibx-row')],
+    rows: () => [...el.querySelectorAll('.ibx-queue .ibx-row:not(.ibx-leaving)')],
+    filter: (name) => el.querySelector(`.ibx-filter[data-filter="${name}"]`),
     q: (sel) => el.querySelector(sel),
   };
 }
@@ -78,7 +81,8 @@ test('the queue renders in cost-of-waiting order with kind, meta, age, unread do
   assert.equal(text(rows[3].querySelector('.ibx-tag-failed')), 'Not delivered');
   assert.equal(text(rows[3].querySelector('.ibx-row-age')), 'answered 19m ago', 'a failed answer is no longer waiting');
   assert.ok(rows[3].classList.contains('ibx-failed'));
-  assert.equal(text(v.q('.ibx-count')), '4 waiting');
+  assert.equal(text(v.q('.ibx-count')), '4 open', 'C3: the count matches the Open filter');
+  assert.equal(v.q('.ibx-count').hidden, false);
   assert.equal(v.q('.ibx-empty').hidden, true);
 });
 
@@ -97,30 +101,213 @@ test('the empty state shows when nothing needs the human', () => {
   assert.equal(v.q('.ibx-empty').hidden, false);
   assert.equal(text(v.q('.ibx-empty')), 'Nothing needs you right now.');
   assert.equal(v.q('.ibx-next'), null, 'no Next button (0.1.3): the n key does its job');
-  assert.equal(v.q('.ibx-recent').hidden, true, 'no strip without anything resolved');
+  assert.equal(v.q('.ibx-recent'), null, 'the Recently resolved strip is gone (0.1.4)');
+  assert.equal(v.q('.ibx-count').hidden, true, 'no count when nothing is open');
 });
 
-test('the recently resolved strip is collapsed and labels each reason', () => {
+test('the Closed filter lists closed items by when they closed, with how and "closed Nm ago"', () => {
   const v = mountView();
   const gone = [
-    item({ state: 'resolved', resolvedReason: 'delivered', updatedAt: 19 * MIN, title: 'A' }),
-    item({ state: 'resolved', resolvedReason: 'withdrawn', updatedAt: 18 * MIN, title: 'B' }),
-    statusItem({ state: 'resolved', resolvedReason: 'status-cleared', updatedAt: 17 * MIN, title: 'C' }),
+    // Asked first but closed last: it leads.
+    item({ state: 'resolved', resolvedReason: 'delivered', createdAt: 1 * MIN, updatedAt: 19 * MIN, title: 'A' }),
+    item({ state: 'resolved', resolvedReason: 'withdrawn', createdAt: 10 * MIN, updatedAt: 17 * MIN, title: 'B' }),
+    statusItem({ state: 'resolved', resolvedReason: 'status-cleared', createdAt: 5 * MIN, updatedAt: 16 * MIN, title: 'C' }),
+    item({ state: 'answered', createdAt: 2 * MIN, updatedAt: 18 * MIN, title: 'D', answer: { optionId: null, text: 'ok', at: 18 * MIN, delivery: 'pending' } }),
   ];
   v.view.update(graphOf(gone));
-  const strip = v.q('.ibx-recent');
-  assert.equal(strip.hidden, false);
-  assert.equal(strip.open, false);
-  assert.equal(text(v.q('.ibx-recent-summary')), 'Recently resolved (3)');
-  const recentRows = [...v.el.querySelectorAll('.ibx-recent-list .ibx-row')];
-  assert.deepEqual(recentRows.map((r) => text(r.querySelector('.ibx-recent-reason'))), ['answered', 'withdrawn by agent', 'resolved in the session']);
-  assert.deepEqual(recentRows.map((r) => text(r.querySelector('.ibx-row-age'))), ['1m ago', '2m ago', '3m ago']);
-  // The same layout as a queue row: kind, title, session.
-  assert.equal(text(recentRows[2].querySelector('.ibx-row-kind-label')), 'Permission');
-  assert.equal(text(recentRows[0].querySelector('.ibx-row-title')), 'A');
-  assert.equal(text(recentRows[2].querySelector('.ibx-row-meta')), 'Worker · Auth');
-  assert.equal(v.rows().length, 0);
+  assert.equal(v.rows().length, 0, 'Open shows nothing');
+  v.filter('closed').click();
+  const rows = v.rows();
+  assert.deepEqual(rows.map((r) => text(r.querySelector('.ibx-row-title'))), ['A', 'D', 'B', 'C']);
+  assert.deepEqual(rows.map((r) => text(r.querySelector('.ibx-closed-reason'))), ['answered', '', 'withdrawn by agent', 'resolved in the session']);
+  assert.deepEqual(rows.map((r) => text(r.querySelector('.ibx-row-age'))), ['closed 1m ago', 'sending', 'closed 3m ago', 'closed 4m ago']);
+  assert.ok(rows.every((r) => r.classList.contains('ibx-closed-row')));
+  // The same layout as an open row: kind, title, session.
+  assert.equal(text(rows[3].querySelector('.ibx-row-kind-label')), 'Permission');
+  assert.equal(text(rows[3].querySelector('.ibx-row-meta')), 'Worker · Auth');
+  assert.equal(v.q('.ibx-empty').hidden, true);
+  assert.equal(v.q('.ibx-queue').getAttribute('aria-label'), 'Closed items');
+});
+
+test('the filter buttons: a "Show" group, aria-pressed, counts, and each empty state', () => {
+  const v = mountView();
+  v.view.update(graphOf([]));
+  const group = v.q('.ibx-filters');
+  assert.equal(group.getAttribute('role'), 'group');
+  assert.equal(group.getAttribute('aria-label'), 'Show');
+  const pressed = () => [...v.el.querySelectorAll('.ibx-filter')].map((b) => b.getAttribute('aria-pressed'));
+  const labels = () => [...v.el.querySelectorAll('.ibx-filter')].map((b) => text(b));
+  assert.deepEqual(pressed(), ['true', 'false', 'false'], 'it opens on Open');
+  assert.deepEqual(labels(), ['Open (0)', 'Closed (0)', 'All']);
+  assert.equal(text(v.q('.ibx-empty')), 'Nothing needs you right now.');
+  v.filter('closed').click();
+  assert.deepEqual(pressed(), ['false', 'true', 'false']);
+  assert.equal(text(v.q('.ibx-empty')), 'Nothing closed in the last 24 hours.');
+  v.filter('all').click();
+  assert.deepEqual(pressed(), ['false', 'false', 'true']);
+  assert.equal(text(v.q('.ibx-empty')), 'Nothing in the last 24 hours.');
   assert.equal(v.q('.ibx-empty').hidden, false);
+
+  const open = item({ createdAt: 1, title: 'open' });
+  const fail = failedItem({ createdAt: 0, title: 'failed' });
+  const old = item({ state: 'resolved', resolvedReason: 'expired', updatedAt: 10 * MIN, title: 'old' });
+  const fresh = item({ state: 'resolved', resolvedReason: 'dismissed', updatedAt: 15 * MIN, title: 'fresh' });
+  v.view.update(graphOf([old, fail, fresh, open]));
+  assert.deepEqual(labels(), ['Open (2)', 'Closed (2)', 'All']);
+  assert.deepEqual(v.rows().map((r) => text(r.querySelector('.ibx-row-title'))), ['open', 'failed', 'fresh', 'old'],
+    'All: the Open list, then the Closed list');
+  assert.deepEqual(v.rows().map((r) => r.classList.contains('ibx-closed-row')), [false, false, true, true]);
+  v.filter('open').click();
+  assert.deepEqual(v.rows().map((r) => text(r.querySelector('.ibx-row-title'))), ['open', 'failed'], 'Open includes a failed delivery');
+  assert.equal(text(v.q('.ibx-count')), '2 open');
+});
+
+test('the chosen filter is remembered per browser, and storage that fails means Open', () => {
+  const stored = new Map();
+  const storage = { getItem: (k) => stored.get(k) ?? null, setItem: (k, val) => stored.set(k, val) };
+  const v = mountView({ storage });
+  v.view.update(graphOf([]));
+  v.filter('closed').click();
+  assert.equal(stored.get('needsyou.filter'), 'closed');
+  const again = mountView({ storage });
+  again.view.update(graphOf([]));
+  assert.equal(again.filter('closed').getAttribute('aria-pressed'), 'true', 'a new view opens on the remembered filter');
+
+  const broken = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
+  const b = mountView({ storage: broken });
+  b.view.update(graphOf([]));
+  assert.equal(b.filter('open').getAttribute('aria-pressed'), 'true');
+  b.filter('all').click();
+  assert.equal(b.filter('all').getAttribute('aria-pressed'), 'true', 'still switches when it cannot remember');
+
+  stored.set('needsyou.filter', 'bogus');
+  const odd = mountView({ storage });
+  odd.view.update(graphOf([]));
+  assert.equal(odd.filter('open').getAttribute('aria-pressed'), 'true', 'an unknown stored value is Open');
+
+  // By default it is the window's localStorage.
+  const w = mountView({ beforeMount: (win) => win.localStorage.setItem('needsyou.filter', 'all') });
+  w.view.update(graphOf([]));
+  assert.equal(w.filter('all').getAttribute('aria-pressed'), 'true');
+});
+
+test('n from Closed or All switches to Open and selects the top open item', () => {
+  const v = mountView();
+  const top = statusItem({ createdAt: 1 });
+  const other = item({ createdAt: 2 });
+  const gone = item({ state: 'resolved', resolvedReason: 'expired', updatedAt: 19 * MIN });
+  v.view.update(graphOf([top, other, gone]));
+  v.filter('closed').click();
+  v.rows()[0].click();
+  assert.equal(v.view.selectedId, gone.id);
+  v.press('n');
+  assert.equal(v.filter('open').getAttribute('aria-pressed'), 'true');
+  assert.equal(v.view.selectedId, top.id);
+  v.filter('all').click();
+  v.view.select(gone.id);
+  v.press('n');
+  assert.equal(v.filter('open').getAttribute('aria-pressed'), 'true');
+  assert.equal(v.view.selectedId, top.id);
+});
+
+test('selecting an open item while Closed shows switches to Open (a card pill)', () => {
+  const v = mountView();
+  const a = item();
+  v.view.update(graphOf([a]));
+  v.filter('closed').click();
+  v.view.select(a.id, { open: true });
+  assert.equal(v.filter('open').getAttribute('aria-pressed'), 'true');
+  assert.deepEqual(v.rows().map((r) => r.dataset.id), [a.id]);
+});
+
+/* ── C1: an X closes the detail ───────────────────────────────────────────── */
+
+test('two panes: the X clears the selection, shows the hint, and focuses the row', () => {
+  const v = mountView({ twoPanes: () => true });
+  const a = item({ createdAt: 1 });
+  const b = item({ createdAt: 2 });
+  v.view.update(graphOf([a, b]));
+  v.view.select(b.id);
+  const x = v.q('.ibx-close');
+  assert.ok(x, 'an X at two panes');
+  assert.equal(x.getAttribute('aria-label'), 'Close');
+  assert.equal(x.title, 'Close (Esc)');
+  assert.ok(x.querySelector('svg'), 'an icon, not a text glyph');
+  x.click();
+  assert.equal(v.view.selectedId, null);
+  assert.equal(text(v.q('.ibx-d-placeholder')), 'Select an item, or press n for the top one.');
+  assert.equal(v.document.activeElement, v.q(`.ibx-row[data-id="${b.id}"]`), 'focus returns to the row that was selected');
+  // No auto-select on later ticks.
+  v.view.update(graphOf([a, b]));
+  v.view.update(graphOf([a, b]));
+  assert.equal(v.view.selectedId, null, 'the next tick does not auto-select again');
+  // A row the human picks selects again.
+  v.rows()[0].click();
+  assert.equal(v.view.selectedId, a.id);
+});
+
+test('two panes: Escape closes the detail; a new item, or n, selects again', () => {
+  const v = mountView({ twoPanes: () => true });
+  const a = item({ createdAt: 1 });
+  v.view.update(graphOf([a]));
+  assert.equal(v.view.selectedId, a.id, 'auto-picked');
+  v.root.focus();
+  v.press('Escape');
+  assert.equal(v.view.selectedId, null);
+  assert.equal(v.document.activeElement, v.q(`.ibx-row[data-id="${a.id}"]`));
+  v.view.update(graphOf([a]));
+  assert.equal(v.view.selectedId, null);
+  v.press('n');
+  assert.equal(v.view.selectedId, a.id, 'n selects again');
+  v.press('Escape'); // n focused the answer box: the first Escape leaves it
+  assert.equal(v.view.selectedId, a.id);
+  v.press('Escape');
+  assert.equal(v.view.selectedId, null);
+  // An item seen before, coming back as a failed delivery, is not new.
+  v.view.update(graphOf([{ ...a, state: 'answered', answer: { optionId: null, text: 'x', at: 1, delivery: 'pending' } }]));
+  v.view.update(graphOf([{ ...a, state: 'answered', answer: { optionId: null, text: 'x', at: 1, delivery: 'failed', deliveryError: 'gone', attempts: 1 } }]));
+  assert.equal(v.view.selectedId, null, 'a failed delivery of a seen item does not reselect');
+  // A new id does.
+  const b = item({ createdAt: 2 });
+  v.view.update(graphOf([a, b]));
+  assert.equal(v.view.selectedId, a.id, 'a new open item lifts the close and auto-selects the top');
+});
+
+test('two panes: Escape while typing or confirming does not close the detail', () => {
+  const v = mountView({ twoPanes: () => true });
+  const a = item({ allowFreeText: true });
+  v.view.update(graphOf([a]));
+  v.view.select(a.id, { focus: true });
+  assert.equal(v.document.activeElement, v.q('.ibx-text'));
+  v.press('Escape');
+  assert.equal(v.view.selectedId, a.id, 'Escape in the box only leaves the box');
+  v.press('e');
+  assert.ok(v.q('.ibx-confirm'));
+  v.press('Escape');
+  assert.equal(v.q('.ibx-confirm'), null);
+  assert.equal(v.view.selectedId, a.id, 'Escape on a confirm only cancels it');
+});
+
+test('two panes: a filter with nothing to show selects nothing and shows no hint', () => {
+  const v = mountView({ twoPanes: () => true });
+  const a = item();
+  v.view.update(graphOf([a]));
+  v.filter('closed').click();
+  assert.equal(v.view.selectedId, null, 'nothing closed to show');
+  assert.equal(text(v.q('.ibx-d-placeholder')), '', 'no hint when the list showing is empty');
+});
+
+test('one pane: no X, and Escape goes Back as before', () => {
+  const v = mountView({ twoPanes: () => false });
+  const a = item();
+  v.view.update(graphOf([a]));
+  v.rows()[0].click();
+  assert.equal(v.q('.ibx-close'), null);
+  assert.ok(v.root.classList.contains('ibx-detail-open'));
+  v.root.focus();
+  v.press('Escape');
+  assert.ok(!v.root.classList.contains('ibx-detail-open'));
+  assert.equal(v.view.selectedId, a.id, 'Back keeps the selection');
 });
 
 test('a status item detail: guidance, the terminal text once, Open session, terminal toggle, Dismiss without confirm', () => {
@@ -432,10 +619,10 @@ test('a resolved agent item opens read-only: options with the choice marked, the
     answer: { optionId: 'yes', text: 'after lunch', at: 14 * MIN, delivery: 'delivered', deliveryError: null, attempts: 1 },
   });
   v.view.update(graphOf([live, done]));
-  v.q('.ibx-recent').open = true;
-  v.el.querySelector(`.ibx-recent-list .ibx-row[data-id="${done.id}"]`).click();
+  v.filter('closed').click();
+  v.el.querySelector(`.ibx-queue .ibx-row[data-id="${done.id}"]`).click();
   assert.equal(v.view.selectedId, done.id);
-  assert.ok(v.q(`.ibx-recent-list .ibx-row[data-id="${done.id}"]`).classList.contains('ibx-selected'));
+  assert.ok(v.q(`.ibx-queue .ibx-row[data-id="${done.id}"]`).classList.contains('ibx-selected'));
   assert.ok(v.q('.ibx-d-readonly'));
   assert.equal(text(v.q('.ibx-d-title')), 'Ship it?');
   assert.match(text(v.q('.ibx-d-kind')), /Decision/);
@@ -495,7 +682,7 @@ test('a cleared status item shows its terminal text, read-only, with no terminal
   assert.equal(v.mounts.length, 0);
 });
 
-test('j/k continue from the queue into the strip only when it is expanded', () => {
+test('j/k walk the list that is showing', () => {
   const v = mountView();
   const a = item({ createdAt: 1 });
   const r1 = item({ state: 'resolved', resolvedReason: 'withdrawn', updatedAt: 19 * MIN });
@@ -504,11 +691,12 @@ test('j/k continue from the queue into the strip only when it is expanded', () =
   v.root.focus();
   v.press('j');
   v.press('j');
-  assert.equal(v.view.selectedId, a.id, 'collapsed: the strip is out of reach');
-  v.q('.ibx-recent').open = true;
+  assert.equal(v.view.selectedId, a.id, 'Open: the closed items are out of reach');
+  v.filter('all').click();
+  v.root.focus();
   v.press('j');
   assert.equal(v.view.selectedId, r1.id);
-  assert.equal(v.document.activeElement, v.q(`.ibx-recent-list .ibx-row[data-id="${r1.id}"]`));
+  assert.equal(v.document.activeElement, v.q(`.ibx-queue .ibx-row[data-id="${r1.id}"]`));
   v.press('j');
   assert.equal(v.view.selectedId, r2.id);
   v.press('j');
@@ -516,8 +704,12 @@ test('j/k continue from the queue into the strip only when it is expanded', () =
   v.press('k');
   v.press('k');
   assert.equal(v.view.selectedId, a.id);
-  // Enter on a read-only item focuses its header's session link.
+  v.filter('closed').click();
+  assert.equal(v.view.selectedId, null, 'an open item is not shown under Closed');
+  v.root.focus();
   v.press('j');
+  assert.equal(v.view.selectedId, r1.id);
+  // Enter on a read-only item focuses its header's session link.
   v.root.focus();
   v.press('Enter');
   assert.equal(v.document.activeElement, v.q('.ibx-d-session'));
@@ -532,7 +724,7 @@ test('agent text in a read-only item stays inert', () => {
   });
   const s = statusItem({ title: XSS, body: XSS, state: 'resolved', resolvedReason: 'status-cleared', status: { waitingFor: XSS, waitingReason: null, episode: 'e' } });
   v.view.update(graphOf([d, s], { sessions: { s1: { name: XSS, taskName: XSS } } }));
-  v.q('.ibx-recent').open = true;
+  v.filter('closed').click();
   v.view.select(d.id);
   assert.equal(v.el.querySelectorAll('img').length, 0);
   assert.equal(text(v.q('.ibx-ro-option .ibx-option-label')), XSS);

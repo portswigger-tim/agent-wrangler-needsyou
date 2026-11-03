@@ -112,12 +112,34 @@ export function queueOrder(items = []) {
     .map((e) => e.item);
 }
 
-// The "Recently resolved" strip: resolved in the last 24 h (the graph already
-// windows them) plus answers still on their way, newest first.
-export function recentItems(items = []) {
+// When an item closed. The store sets `updatedAt` on every close and never
+// changes it afterwards (`update` takes only open items; `markRead` leaves it
+// alone), so for a resolved item it is the close time. An answer still on its
+// way closed when the human answered: `answer.at`.
+export function closedAt(item) {
+  if (item?.state === 'answered') return item.answer?.at ?? item.updatedAt ?? 0;
+  return item?.updatedAt ?? 0;
+}
+
+export const isClosed = (item) => item?.state === 'resolved' || (item?.state === 'answered' && !isFailed(item));
+
+// The Closed list (0.1.4, C2): resolved in the last 24 h (the graph already
+// windows them) plus answers still on their way, by when each CLOSED, newest
+// first, not by when it was asked. Id breaks ties so the order is total.
+export function closedOrder(items = []) {
   return items
-    .filter((i) => i.state === 'resolved' || (i.state === 'answered' && !isFailed(i)))
-    .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+    .filter(isClosed)
+    .sort((a, b) => closedAt(b) - closedAt(a) || String(a.id).localeCompare(String(b.id)));
+}
+
+// The list filters (C2). All is the Open list, then the Closed list, each in
+// its own order.
+export const FILTERS = ['open', 'closed', 'all'];
+
+export function filteredList(filter, items = []) {
+  if (filter === 'closed') return closedOrder(items);
+  if (filter === 'all') return [...queueOrder(items), ...closedOrder(items)];
+  return queueOrder(items);
 }
 
 export function ageLabel(from, now = Date.now()) {
@@ -129,6 +151,12 @@ export function ageLabel(from, now = Date.now()) {
   return `${Math.floor(hours / 24)}d`;
 }
 
+// A closed row's age: how long ago it closed, or "sending" for an answer on its way.
+export function closedLabel(item, now = Date.now()) {
+  if (item?.state === 'answered') return 'sending';
+  return `closed ${ageLabel(closedAt(item), now)} ago`;
+}
+
 // How long a live item has waited, or, once the human answered (a failed
 // delivery), how long ago they did.
 export function waitingLabel(item, now = Date.now()) {
@@ -136,10 +164,16 @@ export function waitingLabel(item, now = Date.now()) {
   return `waiting ${ageLabel(item.createdAt, now)}`;
 }
 
+const NAME_MAX = 60;
+
+// Core's graph session carries `label`, the name the board shows on the card
+// (0.1.4, C4); `name` is a fallback. A long one is clipped.
 function coreSessionName(graph, sessionId) {
   const list = graph?.sessions;
   const found = Array.isArray(list) ? list.find((s) => s?.sessionId === sessionId) : list?.[sessionId];
-  return typeof found?.name === 'string' ? found.name : '';
+  const name = [found?.label, found?.name].find((v) => typeof v === 'string' && v.trim()) || '';
+  const trimmed = name.trim();
+  return trimmed.length > NAME_MAX ? `${trimmed.slice(0, NAME_MAX - 1)}…` : trimmed;
 }
 
 export function sessionName(graph, sessionId) {

@@ -14,7 +14,7 @@
   outline: none;
 }
 .ibx-icon { width: 14px; height: 14px; flex: 0 0 auto; }
-[hidden].ibx-empty, [hidden].ibx-recent, [hidden].ibx-terminal, .ibx-pill[hidden] { display: none; }
+[hidden].ibx-empty, [hidden].ibx-count, [hidden].ibx-terminal, .ibx-pill[hidden] { display: none; }
 
 /* ── buttons ─────────────────────────────────────────────────────────────── */
 .ibx-btn {
@@ -40,11 +40,26 @@
 }
 .ibx-head {
   position: sticky; top: 0; z-index: 1;
-  display: flex; align-items: center; gap: 8px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
   padding: 12px 14px; background: var(--bg); border-bottom: 1px solid var(--border-muted);
 }
 .ibx-heading { margin: 0; font-size: 15px; font-weight: 700; }
 .ibx-count { font-size: 12px; color: var(--fg-muted); }
+
+/* Open / Closed / All (0.1.4, C2): a segmented control at the head's end. */
+.ibx-filters {
+  display: inline-flex; margin-left: auto;
+  border: 1px solid var(--border-muted); border-radius: 6px; overflow: hidden;
+}
+.ibx-filter {
+  font: inherit; font-size: 12px; padding: 3px 10px; cursor: pointer;
+  border: 0; border-left: 1px solid var(--border-muted); background: transparent; color: var(--fg-muted);
+}
+.ibx-filter:first-child { border-left: 0; }
+.ibx-filter:hover { color: var(--fg); }
+/* The pill's fill: --surface-2 alone barely shows, in Light especially. */
+.ibx-filter[aria-pressed="true"] { background: color-mix(in srgb, var(--surface-2) 88%, var(--fg) 12%); color: var(--fg); font-weight: 600; }
+.ibx-filter:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 .ibx-queue { display: flex; flex-direction: column; padding: 6px; gap: 2px; }
 .ibx-row {
@@ -76,13 +91,18 @@
 
 .ibx-empty { margin: 0; padding: 32px 16px; text-align: center; color: var(--fg-muted); font-size: 13px; }
 
-.ibx-recent { margin: 8px 6px 12px; border-top: 1px solid var(--border-muted); padding-top: 6px; }
-.ibx-recent-summary { cursor: pointer; font-size: 11px; color: var(--fg-subtle, var(--fg-muted)); padding: 4px 6px; }
-.ibx-recent-list { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; }
-/* Strip rows are .ibx-row (the queue row's layout), toned down. */
-.ibx-recent-row .ibx-row-title { color: var(--fg-muted); }
-.ibx-recent-row.ibx-selected .ibx-row-title { color: var(--fg); }
-.ibx-recent-reason { white-space: nowrap; }
+/* A closed row is .ibx-row toned down. Under All, a rule marks where the
+   closed part starts. */
+.ibx-closed-row .ibx-row-title { color: var(--fg-muted); }
+.ibx-closed-row.ibx-selected .ibx-row-title { color: var(--fg); }
+.ibx-closed-reason { white-space: nowrap; }
+.ibx-closed-reason:empty { display: none; }
+.ibx-row:not(.ibx-closed-row) + .ibx-closed-row { margin-top: 9px; }
+.ibx-row:not(.ibx-closed-row) + .ibx-closed-row::before {
+  content: ""; position: absolute; left: 4px; right: 4px; top: -6px;
+  border-top: 1px solid var(--border-muted);
+}
+.ibx-closed-row { position: relative; }
 
 /* ── detail pane ─────────────────────────────────────────────────────────── */
 .ibx-detail-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow-y: auto; }
@@ -91,6 +111,12 @@
 .ibx-d-placeholder { margin: 32px 0; color: var(--fg-muted); font-size: 13px; text-align: center; }
 .ibx-d-head { display: flex; flex-direction: column; gap: 6px; }
 .ibx-d-kinds { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* The X (C1): top-right of the detail, two panes only. */
+.ibx-close {
+  margin: -4px -6px 0 auto; padding: 4px; border: 0; background: none; color: var(--fg-muted);
+}
+.ibx-close:hover:not(:disabled) { border: 0; color: var(--fg); background: var(--surface-2); }
+.ibx-close .ibx-icon { width: 16px; height: 16px; }
 .ibx-d-kind { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); }
 .ibx-d-title { margin: 0; font-size: 17px; font-weight: 650; overflow-wrap: anywhere; }
 .ibx-d-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 12px; color: var(--fg-muted); }
@@ -175,6 +201,9 @@
   .ibx-root.ibx-detail-open .ibx-list-pane { display: none; }
   .ibx-root.ibx-detail-open .ibx-detail-pane { display: flex; }
   .ibx-back { display: inline-flex; }
+  .ibx-close { display: none; }
+  /* No room for how it closed: the row keeps "closed 5m ago", the detail says how. */
+  .ibx-closed-reason { display: none; }
   .ibx-row-kind-label { display: none; }
   .ibx-row-kind { min-width: 0; }
   /* A tag and the age stack, so a tagged row keeps room for its title. */

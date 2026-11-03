@@ -16,7 +16,7 @@ const g = graphOf([], {
 function run(sessionId) {
   const sent = [];
   const items = canAskItems({ sessionId }, g, { send: (f) => sent.push(f) });
-  assert.equal(items.length, 1, 'one item per state (F7)');
+  assert.equal(items.length, 1, 'one item (F7, C5)');
   assert.equal(items[0].icon, ICONS.inbox);
   items[0].run();
   return { label: items[0].label, hint: items[0].hint, allowed: sent.map((f) => {
@@ -26,20 +26,26 @@ function run(sessionId) {
   }) };
 }
 
-test('spawned, no override: let it ask you directly', () => {
-  assert.deepEqual(run('w1'), { label: 'Let it ask you directly', hint: 'asks its orchestrator', allowed: [true] });
+// C5: one fixed label; the tick shows the effective canAsk; the click flips it.
+test('spawned, no override: unticked, and the click allows it', () => {
+  assert.deepEqual(run('w1'), { label: 'Let it ask you directly', hint: undefined, allowed: [true] });
 });
 
-test('spawned, allowed: send its questions to the orchestrator, by clearing the override', () => {
-  assert.deepEqual(run('w2'), { label: 'Send its questions to the orchestrator', hint: 'asks you directly', allowed: [null] });
+test('spawned, allowed: ticked, and the click clears the override', () => {
+  assert.deepEqual(run('w2'), { label: 'Let it ask you directly', hint: '✓', allowed: [null] });
 });
 
-test('top-level, no override: stop it asking you directly', () => {
-  assert.deepEqual(run('top'), { label: 'Stop it asking you directly', hint: 'asks you directly', allowed: [false] });
+test('top-level, no override: ticked, and the click refuses it', () => {
+  assert.deepEqual(run('top'), { label: 'Let it ask you directly', hint: '✓', allowed: [false] });
 });
 
-test('top-level, refused: let it ask you directly, by clearing the override', () => {
-  assert.deepEqual(run('off'), { label: 'Let it ask you directly', hint: 'blocked by you', allowed: [null] });
+test('top-level, refused: unticked, and the click clears the override', () => {
+  assert.deepEqual(run('off'), { label: 'Let it ask you directly', hint: undefined, allowed: [null] });
+});
+
+test('an unticked item carries no hint at all', () => {
+  const [it] = canAskItems({ sessionId: 'w1' }, g, { send() {} });
+  assert.ok(!Object.hasOwn(it, 'hint'));
 });
 
 test('no item for a card the inbox graph does not know', () => {

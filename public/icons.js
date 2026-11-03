@@ -15,6 +15,7 @@ export const ICONS = Object.freeze({
   question: SVG('<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>'),
   action: SVG('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>'),
   back: SVG('<path d="m15 18-6-6 6-6"/>'),
+  close: SVG('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'),
   // A status item's icon is its cause (contracts §2 `status.cause`).
   'cause-permission': SVG('<path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/>'),
   'cause-question': SVG('<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>'),
