@@ -1,6 +1,6 @@
 # Fixes for 0.1.1
 
-Status: **in progress** (reviewed 2026-11-03; contracts updated for F3, F4 and F14) · Source: live testing on a real board (2026-11-03), and the workers'
+Status: **done**: merged on 2026-11-03. All of F1–F16 are in. Accepted deviations: F3 (Use default also shows on top-level sessions), F4 (spawner entries use the full entry shape) and F16 (10 px icon, the core chip size). The live re-test is still to do. · Source: live testing on a real board (2026-11-03), and the workers'
 completion notes. Every fix goes through the verification gate. Contract changes are marked;
 only the orchestrator edits `01-contracts.md`.
 

@@ -73,6 +73,8 @@ its own text:
 | --- | --- |
 | `waitingReason === 'api-error-blocking'` | `API error — action needed` |
 | `waitingReason === 'api-error'` | `API error — retry` |
+| exactly `permission prompt` (0.1.1) | `Permission needed in the session` |
+| exactly `input needed` (0.1.1, Claude Code's `AskUserQuestion`) | `Question waiting in the session` |
 | exactly `trust dialog`, or contains `whether to trust this folder` | `Confirm folder trust` |
 | contains `select login method` / `oauth/authorize` | `Sign-in required` |
 | contains `update finished` / `cli update available` | `Agent update needs a restart` |

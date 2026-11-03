@@ -146,7 +146,8 @@ graph: ({ host }) => ({ inbox: {
   open,       // open + answered-with-failed-delivery
   items,      // open + answered, then resolved updated < 24 h ago; ≤200, newest first
   sessions: { [sessionId]: { name, taskId, taskName, spawnedBy, canAsk, canAskOverride } },
-  // listed: item sessions, every session with spawnedBy set, and each listed session's spawner (0.1.1, F4).
+  // listed: item sessions, every session with spawnedBy set, and each listed session's spawner (0.1.1, F4),
+  // all with the same full entry shape.
   // canAskOverride: true | false | null (null = no override, the default applies) (0.1.1, F3).
 }})
 ```

@@ -62,8 +62,8 @@ Excluded by default:
   `send_message`s its orchestrator.
 - The human can allow a specific session from its card menu. Agents can never change this.
 
-WS-3 also checks whether Claude Code's `AskUserQuestion` prompt surfaces as core `needs-you`. If
-it does, the status source already covers agents that use it.
+Claude Code's `AskUserQuestion` prompt surfaces as core `needs-you` (`waitingFor: "input needed"`,
+confirmed on a live board on 2026-11-03), so the status source already covers agents that use it.
 
 ## 4. The one platform limitation
 
