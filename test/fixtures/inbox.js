@@ -1,5 +1,6 @@
-// Test fixtures for the client suites (not a *.test.js, so the glob doesn't
-// run it). Items follow contracts §2; graphs carry just what the client reads.
+// Test fixtures for the client suites (public/*.test.js). Outside public/, so
+// the wrangler never serves them, and not a *.test.js, so the glob doesn't
+// run it. Items follow contracts §2; graphs carry just what the client reads.
 let n = 0;
 
 export function item(over = {}) {

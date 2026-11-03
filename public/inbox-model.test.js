@@ -5,7 +5,7 @@ import {
   sessionMeta, spawnedByLabel, nextAfter, answerPayload, stopsWork,
 } from './inbox-model.js';
 
-import { item } from './inbox-fixtures.js';
+import { item } from '../test/fixtures/inbox.js';
 
 const failed = (over = {}) => item({ state: 'answered', answer: { optionId: null, text: 'x', at: 1, delivery: 'failed', deliveryError: 'gone', attempts: 1 }, ...over });
 

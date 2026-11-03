@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Window } from 'happy-dom';
 import { createInboxView } from './inbox-view.js';
-import { item, statusItem, failedItem, graphOf } from './inbox-fixtures.js';
+import { item, statusItem, failedItem, graphOf } from '../test/fixtures/inbox.js';
 
 const MIN = 60_000;
 const XSS = '<img src=x onerror="globalThis.pwned=1">';

@@ -5,7 +5,8 @@
 //   AW_REPO=<wrangler checkout> node scripts/dev-smoke.mjs <port>
 // Over the control WS and /mcp, as a board tab and an agent would:
 //   - the extension is announced, enabled, unquarantined, with its 6 handlers,
-//     its client assets are served, and graph.inbox is there
+//     its client assets are served (and the test fixtures are not), and
+//     graph.inbox is there
 //   - request_human_input (valid) lands in graph.inbox; an invalid one doesn't
 //   - inbox-observe with a needs-you session opens one status item (twice
 //     still one), and the same session idle resolves it
@@ -113,6 +114,11 @@ expect(ext.handlerTypes?.length === 6 && ext.handlerTypes.every((t) => t.startsW
 for (const asset of ['index.js', 'styles.css', 'observer.js']) {
   const res = await fetch(`${base}/ext/${ID}/${asset}`);
   expect(res.ok, `/ext/${ID}/${asset} is served (${res.status})`);
+}
+{
+  // Test fixtures live in test/, outside public/, so they are never served.
+  const res = await fetch(`${base}/ext/${ID}/inbox-fixtures.js`);
+  expect(res.status === 404, `/ext/${ID}/inbox-fixtures.js is not served (${res.status})`);
 }
 const inbox0 = await inboxWhere(() => true, 'a graph with inbox');
 console.log('graph.inbox:', JSON.stringify({ rev: inbox0.rev, unread: inbox0.unread, open: inbox0.open, items: inbox0.items.length, sessions: inbox0.sessions }));

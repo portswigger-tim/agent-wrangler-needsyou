@@ -83,7 +83,9 @@ control router (a refused answer, for example) are the board's own and stay.
   only when it is `null`, and **Use default** (`allowed: null`) shows only when
   an override exists, including on a top-level session the human turned off.
 
-## Known limits
+## Test fixtures
 
-- `public/inbox-fixtures.js` is test-only but is served under `/ext/needsyou/`.
-  It's harmless.
+The client suites' fixtures are in `test/fixtures/inbox.js`, outside
+`public/`, because the wrangler serves everything in `public/` under
+`/ext/needsyou/`. Moved there in 0.1.1. The boot smoke checks that
+`/ext/needsyou/inbox-fixtures.js` returns 404.

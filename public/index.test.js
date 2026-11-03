@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Window } from 'happy-dom';
 import { createClient } from './index.js';
 import { canAskItems } from './inbox-can-ask.js';
-import { item, statusItem, failedItem, graphOf } from './inbox-fixtures.js';
+import { item, statusItem, failedItem, graphOf } from '../test/fixtures/inbox.js';
 
 // The module the wrangler imports from /ext/needsyou/index.js, registered the
 // way slots.js does it: a registrar with `register` and `api`, then mount and
