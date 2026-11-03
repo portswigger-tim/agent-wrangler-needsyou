@@ -15,8 +15,8 @@ A **triage queue** of what is stuck on the human right now. It is glanceable lik
 move to the next).
 
 The headline number is **how much is waiting on you**, not unread mail. Items leave on their own
-when the need is resolved, by the human, the agent or the terminal. The extension id stays
-`inbox`; the user-facing name is **"Needs you"**.
+when the need is resolved, by the human, the agent or the terminal. The extension id is
+`needsyou`, the user-facing name is **"Needs you"**, and internal names keep `inbox` (contracts §1).
 
 ## Owned files
 
@@ -95,7 +95,7 @@ raise a toast: `blocked` items and blocking agent items. Non-blocking agent item
 the queue. A **seeding rule** applies, as in core's `notifier.js`:
 the first graph after load notifies nothing. For each new id, if `api.settings().notifyToasts !==
 false`, call `api.ui.notify({ id: item.id, title: 'Needs you: ' + kindLabel, body: title, actions: [{id:'open', label:'Open', primary:true}, {id:'session', label:'Go to session'}] })`.
-`open` navigates to `#view=ext:inbox:inbox` and selects the item. `session` calls `api.openSession`.
+`open` navigates to `#view=ext:needsyou:inbox` and selects the item. `session` calls `api.openSession`.
 Withdraw the toast (`api.ui.withdraw(id)`) when the item leaves `open` or becomes read. At most
 3 toasts at once: past that, show one summary toast `id: 'summary'`.
 

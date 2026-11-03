@@ -24,7 +24,7 @@ README.md CHANGELOG.md docs/notes/*.md
    that the 3 tools, the 6 handler types, the `inbox` skill, the 5 settings, the `view` client
    asset and the sweeps are registered.
 2. **boot-smoke** boots a wrangler on a temp `AW_DATA_DIR` and a free port, with this repo copied
-   to `extensions/inbox`. `dev-smoke.mjs` then:
+   to `extensions/needsyou`. `dev-smoke.mjs` then:
    - connects to the control socket and waits for a graph with `inbox`
    - calls the MCP `request_human_input` as a fake caller (or uses a dispatched dummy session, if the
      harness offers one; follow wrangler-squared's approach) and sees the item in `graph.inbox`

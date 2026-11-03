@@ -13,7 +13,7 @@ output that does *not* need the human, which buries the real asks.
 
 ## 2. Product goal
 
-A **"Needs you"** view (extension id `inbox`): a triage queue listing only what needs the human to
+A **"Needs you"** view (extension id `needsyou`): a triage queue listing only what needs the human to
 **decide or act**, ordered by the cost of waiting. It is glanceable like a live feed, self-clearing
 and usually empty, and is worked one item at a time with **Next**.
 "New mail" appears only when a new decision or action is **required**. Everything else stays out:
@@ -82,7 +82,7 @@ reconciles immediately, and that is when the human looks anyway. Agent requests 
 v1 accepts this limitation. Keep `reconcile()` independent of where its input comes from, so
 detection can move server-side later without other changes.
 
-Answers go back with `host.deliver`, not mail. Mail from an extension is sent as `ext:inbox` and
+Answers go back with `host.deliver`, not mail. Mail from an extension is sent as `ext:needsyou` and
 framed as an untrusted peer message that invites a reply to a non-session address.
 
 ## 5. Architecture
@@ -155,7 +155,7 @@ Spawn one board session per workstream (worktree on, cwd = this repo), with this
 
 ## 8. After v1
 
-- **v1.1:** emit `ext:inbox:attention` (started/cleared, once per item) on `host.events`. Adds the
+- **v1.1:** emit `ext:needsyou:attention` (started/cleared, once per item) on `host.events`. Adds the
   `events` capability, so installs re-consent. Phone/Slack/digest extensions can build on it.
 - **Measure usage:** needs-you episodes per day, how often agents call the tool versus ending a
   turn with an unflagged question, and time-to-answer. This informs what to build next.

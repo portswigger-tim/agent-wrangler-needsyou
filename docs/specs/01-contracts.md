@@ -5,9 +5,14 @@ If a worker finds a problem here, it messages the orchestrator.
 
 ## 1. Identity & manifest
 
-- Extension id: **`inbox`**. The directory name, `package.json` `wranglerExtension.id` and the
+- Extension id: **`needsyou`**. The directory name, `package.json` `wranglerExtension.id` and the
   runtime manifest `id` must all match.
-- Label `Needs you`. Description: "A triage queue of the decisions and actions your sessions need from you." The id stays `inbox`.
+- Label `Needs you`. Description: "A triage queue of the decisions and actions your sessions need from you."
+- **Internal names deliberately keep `inbox`:** the store (`host.stores.inbox`), the data file
+  (`inbox.json`), the graph key (`graph.inbox`), the `inbox-*` message types, the `ibx-` CSS
+  prefix, the `inbox` skill and the file names. Only the extension id, and what must equal it
+  (directory, `/ext/<id>/` asset paths, `#view=ext:<id>:…` routes, `ext:<id>` frame and event
+  types), is `needsyou`.
 - `engines.wranglerApi: "^1.57.0"` in both `package.json` and the manifest.
 - `requires`, identical in both places:
   `["sessions:read", "tasks:read", "deliver", "board:rebuild", "board:broadcast"]`
@@ -22,7 +27,7 @@ If a worker finds a problem here, it messages the orchestrator.
 
 ```js
 export default {
-  id: 'inbox', label: 'Needs you', description, help, author: 'PortSwigger', defaultEnabled: true,
+  id: 'needsyou', label: 'Needs you', description, help, author: 'PortSwigger', defaultEnabled: true,
   engines: { wranglerApi: '^1.57.0' }, dir,
   requires: [...as above],
   stores: { inbox: (bag) => new InboxStore({ file: inboxFile(bag), getSettings: () => bag.settings }) }, // WS-1
@@ -181,7 +186,7 @@ Choice: <option label> (<option id>)        ← omitted when no option
 Note: <free text>                           ← omitted when empty
 ```
 
-We deliberately do not use mail. Extension mail is sent as `ext:inbox` and framed as an untrusted
+We deliberately do not use mail. Extension mail is sent as `ext:needsyou` and framed as an untrusted
 peer message inviting a `send_message` reply to an address that isn't a session.
 
 ## 7. Settings (declared in the manifest by WS-1)
@@ -225,4 +230,4 @@ until v1 ships.
 
 ## 12. Events
 
-None in v1 (no `events` capability). v1.1 adds `ext:inbox:attention` (overview §8).
+None in v1 (no `events` capability). v1.1 adds `ext:needsyou:attention` (overview §8).

@@ -79,7 +79,7 @@ Each stub starts with the comment `// Owned by WS-N — stub from WS-1.`, or the
    (unknown ids are ignored for mark-read; dismiss of an unknown id throws `unknown inbox item`).
 6. `npm test` runs `node --test --import ./test-setup.js 'server/**/*.test.js' 'public/**/*.test.js'`.
 7. `AGENTS.md` covers the repo's purpose, the no-import rule, file ownership (from overview §6),
-   the commands, the dev-install recipe (copy into `<AW_DATA_DIR>/extensions/inbox`, never
+   the commands, the dev-install recipe (copy into `<AW_DATA_DIR>/extensions/needsyou`, never
    symlink), and the confirmed `sweeps` entry shape.
 
 ## Acceptance criteria
