@@ -19,7 +19,8 @@ Each fix has a priority:
 | Two board tabs give one item | Pass |
 | `AskUserQuestion` surfaces as needs-you (`waitingFor: "input needed"`) | Pass (confirmed) |
 | UI: Light, Dark, 375 px, keyboard-only answer | To do |
-| Compliance eval (3 Claude + 3 Codex, target ≥ 5/6) | To do |
+| Routing eval (3 spawned workers, 2026-11-03) | **Fail**: 2/3 called the tool and were refused correctly, but 0/3 mailed their spawner. See F10–F12 |
+| Compliance eval (3 Claude + 3 Codex, board-launched, target ≥ 5/6) | To do: re-run per F13 |
 
 ## Fixes
 
@@ -85,7 +86,54 @@ manifest hook, or derive "first run" from activation time. Document the choice i
 
 ## From the human's testing
 
-_Add items here as they come up. Same format: problem, change, acceptance._
+### F10 (P1): Refused workers ask in chat instead of mailing their spawner
+**Seen:** a session asked to spawn 3 workers, each told to end by asking which improvement to do.
+- 2 of 3 workers called `request_human_input`, were refused (correct), retried the same call once,
+  then asked the human in chat.
+- None used `send_message` to reach the spawner. The refusal text said to, but read as advice.
+
+**Change** (`server/can-ask.js` `refusalText`, plus the tool description):
+- Make the refusal an explicit next step: "Refused. Next step: call send_message now (to:
+  "<spawnedBy>") with your question, its options and your recommendation. Do not call
+  request_human_input again. The human will not see a question you write in chat."
+- Keep the no-spawner variant's meaning, in the same imperative style.
+
+**Acceptance:** tests pin both texts. Re-run the spawned-worker scenario: each worker mails its
+spawner, and none asks in chat.
+
+### F11 (P1): Spawners don't know their workers' questions come to them
+**Seen:** the spawning session told the human "their questions … will reach you from those
+sessions". In fact, they are routed to the spawner, which didn't expect them and had already ended
+its turn.
+
+**Change** (`skills/inbox/WRANGLER.md` and `SKILL.md`), one short rule for spawners:
+- Sessions you launch can't ask the human.
+- Their questions come to you by mail.
+- Answer what you can. For anything only the human can decide, raise one `request_human_input`
+  yourself, combining related questions.
+- Never tell the human that a worker will ask them directly.
+
+**Acceptance:** re-run the scenario. The spawner relays or answers, and never promises direct
+questions.
+
+### F12 (P2): One in three workers ignored the nudge entirely
+**Seen:** one worker never called the tool, and ended with "Which one would you like me to do next?"
+in chat only. The nudge and the skill were both on its launch command.
+
+**Change:**
+- Move the end-of-turn rule to the first sentence of `WRANGLER.md`, as the trigger: "Before you end
+  a turn with a question for the human, call `request_human_input`."
+- Measure again in the compliance eval (F13) before doing anything heavier.
+
+### F13 (P2): The compliance eval must use board-launched sessions
+**Seen:** asking one session to "create 3 sessions" makes them workers, so the eval measured the
+routing path, not direct asking.
+
+**Change:** `docs/notes/testing.md` states the sessions must be started from the board UI, not by
+another session, and adds the spawned-worker scenario above as a separate routing eval. The
+pass criterion is that each worker mails its spawner.
+
+_Add more items here as they come up. Same format: problem, change, acceptance._
 
 ## Out of scope (not this extension)
 
@@ -97,6 +145,6 @@ _Add items here as they come up. Same format: problem, change, acceptance._
 
 ## How the fixes run
 
-One worker session takes F1–F9 on branch `fixes-0.1.1`, commits through the gate, and mails the
+One worker session takes F1–F13 on branch `fixes-0.1.1`, commits through the gate, and mails the
 orchestrator. The orchestrator applies the contract §4 changes (F3, F4) first. Items from the
 human's testing are added before the worker starts, or batched into a follow-up.
