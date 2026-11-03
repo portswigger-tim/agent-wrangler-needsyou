@@ -1,0 +1,58 @@
+name: Test
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Side by side, not nested: validate-manifest.mjs copies this checkout into a
+# fake extensions dir and runs the loader's import scan over every file in it,
+# so agent-wrangler must not live inside it.
+defaults:
+  run:
+    working-directory: needsyou
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # npm test hands node quoted globs, which Node expands from 21 on.
+        node: [22, 24]
+    env:
+      AW_REPO: ${{ github.workspace }}/agent-wrangler
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: needsyou
+          persist-credentials: false
+
+      - uses: actions/checkout@v4
+        with:
+          repository: PortSwigger/agent-wrangler
+          ref: main
+          path: agent-wrangler
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: |
+            needsyou/package-lock.json
+            agent-wrangler/package-lock.json
+
+      - run: npm ci
+
+      # Only the loader's own imports (semver) are needed; nothing is booted.
+      - run: npm ci --ignore-scripts
+        working-directory: agent-wrangler
+
+      - run: node scripts/validate-manifest.mjs
+
+      - run: npm test

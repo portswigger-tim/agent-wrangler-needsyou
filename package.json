@@ -1,0 +1,28 @@
+{
+  "name": "agent-wrangler-inbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A triage queue of the decisions and actions your sessions need from you. An Agent Wrangler extension.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "test": "node --test --import ./test-setup.js 'server/**/*.test.js' 'public/**/*.test.js'"
+  },
+  "wranglerExtension": {
+    "id": "needsyou",
+    "label": "Needs you",
+    "description": "A triage queue of the decisions and actions your sessions need from you.",
+    "author": "PortSwigger",
+    "requires": ["sessions:read", "tasks:read", "deliver", "board:rebuild"],
+    "engines": { "wranglerApi": "^1.57.0" }
+  },
+  "dependencies": {
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "happy-dom": "^21.0.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,2 @@
+// Owned by WS-4 — stub from WS-1.
+export default { register() {} };
