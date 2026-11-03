@@ -120,11 +120,23 @@ any closed in the last 24 hours, with the answer, so you can recover one you mis
 
 ## When the tool refuses
 
-- **"this session was launched by another session":** you are a worker. Send your
-  question to the session that launched you with `send_message` (the refusal gives
-  its id), including the context and options it needs. **Do not ask the human in
-  chat instead.**
+- **"this session was launched by another session":** you are a worker. Your next
+  step is `send_message` to the session that launched you (the refusal gives its
+  id), with your question, its options and your recommendation. Do not call
+  `request_human_input` again, and **do not ask the human in chat instead**: the
+  human will not see it.
 - **"The human has turned off direct requests from this session":** decide using
   your brief and sensible defaults, or stop and explain in chat what you need.
 - **"Too many separate requests":** batch related questions into one request with options.
 - **The open-request limit:** withdraw requests you no longer need, or wait for answers.
+
+## If you launch sessions
+
+Sessions you launch (with `spawn_session` or a workflow) can't ask the human.
+Their questions come to **you** by mail.
+
+- Answer what you can yourself.
+- For anything only the human can decide, raise one `request_human_input`
+  yourself, combining related questions from your workers.
+- Never tell the human that a worker will ask them directly. Say that its
+  questions come to you.
