@@ -32,6 +32,7 @@ export default {
   description: 'A triage queue of the decisions and actions your sessions need from you.',
   help: 'Adds the Needs you view: one item for each session blocked on you (a permission prompt, a sign-in, a trust dialog) and for each decision an agent raises with the request_human_input tool. Answers go straight back to the session. Items close themselves once the need goes away. Status items appear only while a board tab is open.',
   author: 'PortSwigger',
+  homepage: 'https://github.com/portswigger-tim/agent-wrangler-needsyou',
   defaultEnabled: true,
   engines: { wranglerApi: '^1.57.0' },
   dir,

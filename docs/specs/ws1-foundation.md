@@ -17,7 +17,7 @@ tests, and **stub files for every other workstream**, so those workstreams never
 ## Owned files
 
 ```
-package.json, package-lock.json, index.js, .gitignore, LICENSE (Apache-2.0), AGENTS.md, CLAUDE.md (@AGENTS.md)
+package.json, package-lock.json, index.js, .gitignore, LICENSE (MIT, from the GitHub repo), AGENTS.md, CLAUDE.md (@AGENTS.md)
 test-setup.js                         # sets AW_DATA_DIR to a temp dir (copy wrangler-squared)
 server/manifest.js                    # final manifest per contracts §1, settings per §7
 server/item.js  server/item.test.js

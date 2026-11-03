@@ -1,10 +1,10 @@
 {
-  "name": "agent-wrangler-inbox",
+  "name": "agent-wrangler-needsyou",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "A triage queue of the decisions and actions your sessions need from you. An Agent Wrangler extension.",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "scripts": {
     "test": "node --test --import ./test-setup.js 'server/**/*.test.js' 'public/**/*.test.js'"
   },
@@ -13,8 +13,16 @@
     "label": "Needs you",
     "description": "A triage queue of the decisions and actions your sessions need from you.",
     "author": "PortSwigger",
-    "requires": ["sessions:read", "tasks:read", "deliver", "board:rebuild"],
-    "engines": { "wranglerApi": "^1.57.0" }
+    "requires": [
+      "sessions:read",
+      "tasks:read",
+      "deliver",
+      "board:rebuild"
+    ],
+    "engines": {
+      "wranglerApi": "^1.57.0"
+    },
+    "homepage": "https://github.com/portswigger-tim/agent-wrangler-needsyou"
   },
   "dependencies": {
     "zod": "^4.6.6"
@@ -24,5 +32,9 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/portswigger-tim/agent-wrangler-needsyou.git"
   }
 }
