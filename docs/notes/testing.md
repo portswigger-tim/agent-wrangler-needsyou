@@ -174,8 +174,10 @@ The item closes.
 
 ### AskUserQuestion (WS-3)
 
-This check answers an open question: does Claude Code's `AskUserQuestion`
-prompt put the session into `needs-you`?
+This check confirms that Claude Code's `AskUserQuestion` prompt puts the
+session into `needs-you`. It passed on a live board on 2026-11-03: `status` was
+`needs-you`, `waitingFor` was "input needed", and a Blocked item showed in
+about 5 seconds. Repeat it after a Claude Code upgrade.
 
 1. From the board, start a Claude session. Give it this prompt: "Use the
    AskUserQuestion tool to ask me whether to use tabs or spaces. Do not use any
@@ -189,8 +191,8 @@ prompt put the session into `needs-you`?
 8. Record `status`, `waitingFor` and `waitingReason`.
 9. Record if a blocked item shows in **Needs you**.
 
-If `status` is `needs-you`, the session status source already covers agents
-that use `AskUserQuestion`.
+Expected: `status` is `needs-you`, `waitingFor` is "input needed", and a
+Blocked item titled "Question waiting in the session" shows in **Needs you**.
 
 ### Compliance eval (WS-2)
 

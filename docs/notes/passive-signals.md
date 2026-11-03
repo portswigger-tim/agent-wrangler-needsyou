@@ -27,7 +27,10 @@ from, so a server-side source can replace the tabs later with no other change.
   A changed `waitingFor` updates it in place, so it isn't announced again.
 - **Titles** match core's exact phrases (from its terminal scraper), not bare
   words, so a permission prompt such as "Bash: npm update" keeps its own text
-  ("Waiting for you: Bash: npm update").
+  ("Waiting for you: Bash: npm update"). Live testing showed that `waitingFor`
+  is often a bare phrase. The two commonest are matched as the whole string
+  (case-insensitive): "permission prompt" becomes "Permission needed in the
+  session" and "input needed" becomes "Question waiting in the session".
 - **Dismissal is lazy.** The dismiss handler can't tell reconcile, so reconcile
   remembers the status item it last saw open per session and notices when that
   item comes back `dismissed`. After a restart, the persistent check is a
@@ -44,10 +47,11 @@ from, so a server-side source can replace the tabs later with no other change.
   again. If the human answered in the terminal just before the restart, the
   item stays open until the agent withdraws it or the human dismisses it.
 
-## Open question
+## `AskUserQuestion` is covered
 
-Does Claude Code's `AskUserQuestion` prompt show as core `needs-you`? Claude's
-`needs-you` comes only from Claude Code's session file `status: 'waiting'`, not
-from scraping the pane. WS-3 estimated a 65% chance it does. The check is in
-[`testing.md`](testing.md#askuserquestion-ws-3). If it doesn't, agents that use
-`AskUserQuestion` instead of `request_human_input` stay invisible to the queue.
+Claude Code's `AskUserQuestion` prompt does show as core `needs-you`. This was
+confirmed on a live board on 2026-11-03: the session's `status` was
+`needs-you`, `waitingFor` was "input needed" and `waitingReason` was empty. A
+Blocked item ("Question waiting in the session") showed in about 5 seconds
+and closed when the question was answered in the terminal. So agents that use
+`AskUserQuestion` instead of `request_human_input` still reach the queue.
