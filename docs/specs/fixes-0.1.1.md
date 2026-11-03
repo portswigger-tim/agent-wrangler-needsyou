@@ -133,6 +133,63 @@ routing path, not direct asking.
 another session, and adds the spawned-worker scenario above as a separate routing eval. The
 pass criterion is that each worker mails its spawner.
 
+### F14 (P1): Remove the toast notifications [contract §7]
+**From the human:** get rid of the toast pop-ups. The badge and the queue are enough.
+
+**Change:**
+- Delete `public/inbox-notify.js` and its wiring in `public/index.js`. Keep the shared `seeGraph`
+  path for the observer.
+- Remove the `notifyToasts` setting from the manifest and contracts §7. Settings go from 5 to 4.
+  An old value left in config.json is harmless.
+- Update `scripts/validate-manifest.mjs` (expected settings), `dev-smoke.mjs` if it checks
+  settings, README "Settings", `docs/notes/ui.md` "Toasts" and `docs/notes/testing.md`.
+
+**Acceptance:** no `api.ui.notify` call remains. Tests and the validate/smoke scripts expect 4
+settings.
+
+### F15 (P2): Show a resolved request as a read-only view
+**From the human:** the "Recently resolved" strip is hard to use. Opening one should show the
+request read-only.
+
+**Change:**
+- Selecting a resolved row opens it in the detail pane in a **read-only** state:
+  - title, kind, session and task
+  - the body (sanitised markdown, as for open items)
+  - the options, with the chosen one marked
+  - the note the human sent
+  - how and when it closed (the existing reason labels, with an absolute and a relative time)
+  - for status items, the `waitingFor` text
+- The only actions are **Open session** and **Back to queue**. No answer, dismiss or retry controls.
+- Give the strip rows the same layout as queue rows (kind, title, session, reason, age), and make
+  them keyboard-reachable (`j`/`k` continue into the strip when it is expanded).
+
+**Acceptance:**
+- Render tests for a resolved agent item (with choice and note), a dismissed item and a cleared
+  status item.
+- The read-only view has no answer controls.
+- Agent text stays inert (the `<img onerror>` test).
+
+### F16 (P2): A human silhouette icon, and a card chip that matches the others
+**From the human:** use a human silhouette instead of the mail-inbox icon, and make the card
+indicator look like the board's other card chips, not a coloured emoji.
+
+**Change:**
+- Replace `ICONS.inbox` (rail button) with a monochrome person-silhouette SVG. Use the board's
+  icon style: `viewBox="0 0 24 24"`, `fill="none"`, `stroke="currentColor"`,
+  `stroke-width="2"`, round caps and joins. For example:
+  `<circle cx="12" cy="7" r="4"/><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>`.
+- The card pill (`public/inbox-pill.js`) drops the `📬` emoji. It renders the same silhouette
+  SVG (about 12–14 px, `currentColor`) plus the count. It uses the same chip markup and classes
+  as core's card chips (`card-tag`; check `cards.js` for the current class names) and only board
+  CSS variables, so it matches every theme.
+- Update the README screenshot alt text and `docs/notes/ui.md`.
+
+**Acceptance:**
+- No emoji in `public/`.
+- Pill tests assert the SVG and the chip class.
+- A manual check on the board, in Light and Dark, shows the chip beside the core chips at the
+  same size and colour.
+
 _Add more items here as they come up. Same format: problem, change, acceptance._
 
 ## Out of scope (not this extension)
@@ -145,6 +202,6 @@ _Add more items here as they come up. Same format: problem, change, acceptance._
 
 ## How the fixes run
 
-One worker session takes F1–F13 on branch `fixes-0.1.1`, commits through the gate, and mails the
-orchestrator. The orchestrator applies the contract §4 changes (F3, F4) first. Items from the
+One worker session takes F1–F16 on branch `fixes-0.1.1`, commits through the gate, and mails the
+orchestrator. The orchestrator applies the contract changes (§4 for F3 and F4, §7 for F14) first. Items from the
 human's testing are added before the worker starts, or batched into a follow-up.
