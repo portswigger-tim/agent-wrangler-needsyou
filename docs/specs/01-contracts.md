@@ -52,6 +52,7 @@ agent-wrangler's `validateManifest` and the `todos` builtin, then records both i
 ```ts
 type Kind   = 'decision' | 'approval' | 'question' | 'action' | 'blocked';
 type Source = 'agent' | 'status';
+type StatusCause = 'permission' | 'question' | 'trust' | 'sign-in' | 'update' | 'container' | 'api-error' | 'other';
 type State  = 'open' | 'answered' | 'resolved';
 type ResolvedReason =
   | 'delivered'           // agent item: answer reached the session
@@ -86,7 +87,12 @@ interface Item {
     optionId: string | null; text: string | null; at: number;
     delivery: 'pending' | 'delivered' | 'failed'; deliveryError: string | null; attempts: number;
   };
-  status?: { waitingFor: string | null; waitingReason: string | null; episode: string }; // status items only
+  status?: {                // status items only
+    waitingFor: string | null;
+    waitingReason: string | null;
+    episode: string;
+    cause: StatusCause;     // 0.1.2: set by reconcile's causeFor; missing/invalid → 'other'
+  };
 }
 ```
 
