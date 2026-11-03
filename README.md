@@ -71,6 +71,11 @@ Each need appears once. It does not appear again when you reload the page,
 restart Agent Wrangler or open a second tab. If an agent asks the same thing
 again, its earlier request changes. A second item does not appear.
 
+If Agent Wrangler restarts while an agent request is waiting, and you then
+answer it in the terminal, the request may stay open. It closes the next time
+the session stops and starts work again. Or you can dismiss it, or the agent
+can withdraw it.
+
 You cannot approve a permission prompt from the list in this version. The item
 links to the session. You can also select **Show terminal here** to open the
 session's terminal in the list.

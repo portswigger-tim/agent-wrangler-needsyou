@@ -46,6 +46,8 @@ from, so a server-side source can replace the tabs later with no other change.
   blocking request closes only once its session is seen idle and then working
   again. If the human answered in the terminal just before the restart, the
   item stays open until the agent withdraws it or the human dismisses it.
+  This is known and documented for 0.1.1 (fixes F5), including in the
+  README. Persisting the flag needs a new store field; consider it for 0.2.
 
 ## `AskUserQuestion` is covered
 
