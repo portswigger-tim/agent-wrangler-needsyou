@@ -1,6 +1,41 @@
 # Changelog
 
-## 0.1.1 (unreleased)
+## 0.1.2 (unreleased)
+
+Fixes from the e2e screenshot walk-through and the human's review of it
+(`docs/specs/fixes-0.1.2.md`). Same host API (`^1.57.0`) and capabilities.
+
+### Changed
+
+- **Status items say what they are (F1).** Each has a `status.cause`
+  (permission, question, trust, sign-in, update, container, api-error, other).
+  The queue labels it Permission, Question, Trust, Sign-in, Restart or Waiting.
+  Only a container failure or an API error reads Blocked, in red.
+- **Status items say what to do (F2).** One sentence per cause, then the
+  terminal text once, under "From the terminal". Core's bare phrases are no
+  longer repeated.
+- **Failed deliveries (F3).** A readable tag, the session's name, and, for an
+  archived session, Dismiss as the main button. The row says when you
+  answered.
+- **Urgent requests (F4)** show an Urgent tag, colour the card pill, and sort
+  with the status items.
+- **The queue opens on its first item (F5)** at desktop width.
+- **Answer box (F6).** Full width, labelled, with room above Send.
+- **Card menu (F7).** One "can ask" item with an icon, on every card. Its label
+  says what the click does, and its hint the current state. "Use default" is
+  gone.
+- **Next is disabled (F8)** when nothing is waiting.
+- **Done button (F9)** for action requests. Non-blocking requests say the agent
+  is still working.
+- **Resolved items have no buttons (F11).**
+- The rail icon is sized like core's rail icons.
+
+### Added
+
+- `e2e/`: a screenshot walk-through of every interruption type in headless
+  Chromium. It also regenerates the README screenshot.
+
+## 0.1.1
 
 Fixes from the first live tests on a real board (`docs/specs/fixes-0.1.1.md`).
 Same host API (`^1.57.0`) and capabilities.

@@ -99,8 +99,10 @@
 .ibx-d-guidance { margin: 0; font-size: 13px; line-height: var(--prose-leading, 1.55); }
 .ibx-from-terminal { display: flex; flex-direction: column; gap: 6px; }
 .ibx-from-terminal-head { margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); }
-.ibx-terminal-text { white-space: pre-wrap; font-family: var(--font-mono, monospace); font-size: 12px; }
-.ibx-terminal-text :is(p, pre) { margin: 0; }
+.ibx-terminal-text { font-family: var(--font-mono, monospace); font-size: 12px; }
+/* pre-wrap on the paragraph, not the box: the rendered markdown has a newline
+   after </p>, which a pre-wrap box would show as a blank line. */
+.ibx-terminal-text :is(p, pre) { margin: 0; white-space: pre-wrap; }
 .ibx-body { font-size: 13px; line-height: var(--prose-leading, 1.55); overflow-wrap: anywhere; padding: 10px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border-muted); }
 .ibx-body > :first-child { margin-top: 0; }
 .ibx-body > :last-child { margin-bottom: 0; }

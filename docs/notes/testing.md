@@ -82,6 +82,10 @@ an agent.
 2. Run `AW_REPO=<agent-wrangler checkout> e2e/run.sh`.
 3. Open `e2e/screens/`. `INDEX.txt` says what each screenshot shows.
 
+The run also writes `readme.png`, the README's screenshot. To replace
+`docs/notes/needs-you.png` with it, run `E2E_README=1 AW_REPO=<agent-wrangler
+checkout> e2e/run.sh`. Do this when the view changes.
+
 The script ends with exit code 0 when every expectation is met. To look at the
 board yourself, set `E2E_SERVE=1`. The script then prints the board URL and
 waits.

@@ -1,6 +1,6 @@
 # Fixes for 0.1.2
 
-Status: **draft** · Source: the e2e screenshot walk-through (`e2e/run.sh`, 2026-11-03) and the
+Status: **done**: merged on 2026-11-03. All of F1–F11 are in. Accepted deviations: F1 shows 6 labels, not 7 (container and blocking API error are both Blocked, per the table); F4 sorts tier 0 oldest first, so the urgent approval follows older status items. · Source: the e2e screenshot walk-through (`e2e/run.sh`, 2026-11-03) and the
 human's review of it. Screenshot numbers refer to the files in `e2e/screens/`. Every fix goes
 through the verification gate. Contract changes are marked; only the orchestrator edits
 `01-contracts.md`.

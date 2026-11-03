@@ -3,6 +3,8 @@
 # cards, then run screens.mjs against it in headless Chromium:
 #   AW_REPO=<wrangler checkout, npm ci'd> e2e/run.sh [out dir]
 # Screenshots go to the out dir (default e2e/screens/, git-ignored).
+# With E2E_README=1, a passing run also copies readme.png over the README's
+# screenshot, docs/notes/needs-you.png.
 # With E2E_SERVE=1 it prints the board URL and waits instead of running
 # screens.mjs, so you can look by hand. Ctrl-C stops it.
 #
@@ -67,6 +69,9 @@ fi
 
 E2E_DATA_DIR="$data" node "$here/screens.mjs" "$port" "$out"
 status=$?
+if [ "$status" -eq 0 ] && [ -n "${E2E_README:-}" ]; then
+  cp "$out/readme.png" "$root/docs/notes/needs-you.png" && echo "e2e: updated docs/notes/needs-you.png"
+fi
 if [ "$status" -ne 0 ]; then
   sed 's/^/wrangler log: /' "$data/server.log" | tail -40 >&2
   echo "e2e: screens.mjs failed (exit $status)" >&2

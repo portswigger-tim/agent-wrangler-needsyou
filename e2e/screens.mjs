@@ -68,8 +68,8 @@ const browser = await chromium.launch();
 let shotNo = 0;
 const consoleErrors = [];
 
-async function openBoard({ theme = 'dark', width = 1400, height = 900 } = {}) {
-  const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 2 });
+async function openBoard({ theme = 'dark', width = 1400, height = 900, scale = 2 } = {}) {
+  const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: scale });
   await context.addInitScript((t) => { try { localStorage.setItem('cm-style', t); } catch {} }, theme);
   let toPage = null;
   let lastRaw = null;
@@ -325,6 +325,21 @@ try {
   await shot(page, 'narrow-detail', { note: '375px: the detail, with Back' });
   await page.evaluate(() => document.querySelector('.ibx-detail-pane')?.scrollTo(0, 99999));
   await shot(page, 'narrow-detail-bottom', { note: '375px: the detail scrolled to its actions' });
+  await context.close();
+
+  // ── 9. The README's screenshot (docs/notes/needs-you.png) ──────────────────
+  // 1600 × 825 at 1.25×, small enough for the gate's 1 MB limit. A decision is
+  // selected, so it shows the context, the options and the note box.
+  // `E2E_README=1 e2e/run.sh` copies it over docs/notes/needs-you.png.
+  ({ context, page, refresh } = await openBoard({ width: 1280, height: 660, scale: 1.25 }));
+  await view(page);
+  await refresh();
+  await rowTitled(page, 'Card form').click();
+  await page.waitForTimeout(300);
+  await page.mouse.move(0, 0);
+  await page.screenshot({ path: path.join(out, 'readme.png') });
+  notes.push('readme.png: the README screenshot (decision selected, Dark)');
+  console.log('shot: readme.png');
   await context.close();
 } catch (err) {
   failures.push(`walk-through stopped: ${err.message.split('\n')[0]}`);
