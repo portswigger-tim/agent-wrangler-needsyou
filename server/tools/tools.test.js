@@ -80,7 +80,7 @@ test('request_human_input: the happy path queues an item for the caller', async 
   }));
   assert.equal(out.isError, undefined);
   assert.deepEqual(out.structuredContent, { id: 'ibx_000000000001', state: 'open', blocking: true, updated: false });
-  assert.match(out.content[0].text, /^Request queued in the human's "Needs you" queue\. End your turn now; the answer will arrive as a message starting `\[Needs you\]`\./);
+  assert.match(out.content[0].text, /^Request queued in the human's "Needs you" queue\. Also write the question, its options and your recommendation in your reply, so the human sees it in chat too\. If they answer in chat, call withdraw_human_request with this id\. Then end your turn; the answer will arrive as a message starting `\[Needs you\]`\./);
   assert.equal(calls.rebuild, 1);
 
   const item = store.get('ibx_000000000001');
@@ -101,6 +101,7 @@ test('request_human_input: non-blocking requests say to carry on, and a session 
   const out = await request.handler(as('s2'), ask({ blocking: false }));
   assert.equal(out.structuredContent.blocking, false);
   assert.match(out.content[0].text, /Carry on with work that does not depend on it/);
+  assert.match(out.content[0].text, /so the human sees it in chat too/, 'a non-blocking request is said in chat as well');
   assert.equal(store.get(out.structuredContent.id).taskId, null);
 });
 

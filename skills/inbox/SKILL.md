@@ -18,6 +18,14 @@ are running in):
 - `withdraw_human_request({ id })` takes back a request that no longer needs the human
 - `list_my_human_requests()` lists your open, answered and recently closed requests, with answers
 
+## Always say it in chat too
+
+Every request goes in **both** places. The queue is how the human sees it on
+the board. Your reply is where they see it if they are chatting with you right
+now. In your reply, write the question, the options and your recommendation,
+in the same words as the request. If the human answers in chat, call
+`withdraw_human_request({ id })` straight away and carry on with their answer.
+
 ## When to use it
 
 Only when you **cannot proceed correctly without the human**:
@@ -48,8 +56,7 @@ question in chat. That includes:
 - a "Decisions for you", "Open questions" or "Next steps (pick one)" section
 - "Should I commit / push / spawn the workers / proceed?"
 
-Keep the chat text too. The request is what makes the question visible on the
-board. Make one request per distinct decision (up to the per-session limit, five unless the human changed it), or one
+Keep the chat text too (see "Always say it in chat too"). Make one request per distinct decision (up to the per-session limit, five unless the human changed it), or one
 request with a free-text box when the questions are closely related. Use
 `blocking: true` (the default), because you are ending your turn.
 

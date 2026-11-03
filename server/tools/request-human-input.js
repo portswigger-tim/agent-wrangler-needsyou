@@ -20,8 +20,9 @@ export const DESCRIPTION =
   + 'tests pass" (that is a status update: say it in chat). '
   + 'Give a one-line title, put context, trade-offs and your recommendation in the body, and offer '
   + '2-4 options where there is a choice. If you are about to end your turn by asking the human to '
-  + 'choose (next steps, "should I proceed?"), call this instead of only writing the question in '
-  + 'chat. Asking again with the same dedupe_key updates your earlier request instead of adding one. '
+  + 'choose (next steps, "should I proceed?"), call this, and also write the question, its options '
+  + 'and your recommendation in your reply: the human may be chatting with you and should not have '
+  + 'to switch to the queue. If they answer in chat, call withdraw_human_request. Asking again with the same dedupe_key updates your earlier request instead of adding one. '
   + 'If blocking (the default), end your turn right after the call: the answer arrives as a message '
   + 'starting "[Needs you]". It acts for the session you are running in; there is no session '
   + 'parameter. A session launched by another session is refused: then call send_message to that '
@@ -46,10 +47,14 @@ export const inputSchema = {
   expires_in_minutes: z.number().int().min(LIMITS.expiresInMinutes.min).max(LIMITS.expiresInMinutes.max).optional().describe('Close the request unanswered after this long.'),
 };
 
+// Said on every success, because the agent reads it at the moment of asking:
+// the human may be chatting with it, so the question belongs in chat as well.
+const ALSO_IN_CHAT = 'Also write the question, its options and your recommendation in your reply, so the human sees it in chat too. If they answer in chat, call withdraw_human_request with this id.';
+
 function nextStep(blocking) {
   return blocking
-    ? 'Request queued in the human\'s "Needs you" queue. End your turn now; the answer will arrive as a message starting `[Needs you]`.'
-    : 'Request queued in the human\'s "Needs you" queue. Carry on with work that does not depend on it; the answer will arrive as a message starting `[Needs you]`.';
+    ? `Request queued in the human's "Needs you" queue. ${ALSO_IN_CHAT} Then end your turn; the answer will arrive as a message starting \`[Needs you]\`.`
+    : `Request queued in the human's "Needs you" queue. ${ALSO_IN_CHAT} Carry on with work that does not depend on it; the answer will arrive as a message starting \`[Needs you]\`.`;
 }
 
 // A factory so each instance (and each test) has its own rate-limit memory and
