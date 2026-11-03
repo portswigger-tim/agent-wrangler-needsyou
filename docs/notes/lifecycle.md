@@ -20,7 +20,11 @@ The non-obvious decisions behind `server/lifecycle.js` and `server/sweeps.js`.
 - `retention` (hourly) removes resolved items older than **Keep resolved
   items** days (default 7).
 - `retention-boot` runs retention once, 30 s after activation. Sweeps only have
-  `everyMs`, so it is a 30 s sweep that does its work on its first tick only.
+  `everyMs`, so it is a 30 s sweep that does its work on its first tick for
+  each store instance and then only checks a `WeakSet`. The wrangler builds
+  the store afresh on every activation, so the run repeats once after each
+  disable and enable. (0.1.0 used a closure flag, which never reset.) Dropping
+  the idle tick would need a one-shot sweep, which the host API doesn't have.
 - Sweeps are quiet: one log line only when a tick changed something, with
   counts only.
 - Sweeps are fire-and-forget and not awaited, and start only once the wrangler

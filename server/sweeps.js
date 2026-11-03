@@ -37,9 +37,12 @@ async function resolveExpired(host) {
 }
 
 // Sweeps have only `everyMs`, so the "once, 30 s after activation" retention
-// run is a short-interval sweep that does its work on the first tick only.
+// run is a short-interval sweep that does its work on its first tick for each
+// store instance. The wrangler builds the store afresh on every activation, so
+// keying on it (not a closure flag) runs it again after a disable and enable.
+// Later ticks are a WeakSet lookup and nothing more.
 export function makeSweeps() {
-  let bootDone = false;
+  const bootDone = new WeakSet();
   return [
     { id: 'retention', everyMs: 60 * 60 * 1000, run: ({ host }) => removeExpiredResolved(host) },
     { id: 'expiry', everyMs: 60 * 1000, run: ({ host }) => resolveExpired(host) },
@@ -47,8 +50,9 @@ export function makeSweeps() {
       id: 'retention-boot',
       everyMs: BOOT_DELAY_MS,
       run: ({ host }) => {
-        if (bootDone) return;
-        bootDone = true;
+        const store = host.stores.inbox;
+        if (bootDone.has(store)) return;
+        bootDone.add(store);
         return removeExpiredResolved(host);
       },
     },

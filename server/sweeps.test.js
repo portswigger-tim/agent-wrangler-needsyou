@@ -91,7 +91,7 @@ test('retention falls back to 7 days when unset or out of range', async () => {
   }
 });
 
-test('boot retention run happens once, on the first tick only', async () => {
+test('boot retention run happens once per store instance, on its first tick only', async () => {
   const now = clock(30 * DAY);
   const h = fakeHost({ now });
   const sweeps = makeSweeps();
@@ -109,6 +109,20 @@ test('boot retention run happens once, on the first tick only', async () => {
   const second = make();
   await boot.run({ host: h.host });
   assert.ok(h.store.get(second));
+
+  // Disable and enable: the wrangler builds a new store, so the run repeats once.
+  const h2 = fakeHost({ now });
+  const again = h2.store.create(req('s1'));
+  h2.store.resolve(again.id, 'expired');
+  h2.store.items.find((x) => x.id === again.id).updatedAt = 0;
+  await boot.run({ host: h2.host });
+  assert.equal(h2.store.get(again.id), null, 'a new store instance gets its own boot run');
+  const later = h2.store.create(req('s1'));
+  h2.store.resolve(later.id, 'expired');
+  h2.store.items.find((x) => x.id === later.id).updatedAt = 0;
+  await boot.run({ host: h2.host });
+  assert.ok(h2.store.get(later.id), 'and only one');
+  assert.ok(h.store.get(second), 'the old instance is not run again');
 });
 
 test('a throwing store rejects from run (the host logs it) without corrupting anything', async () => {
