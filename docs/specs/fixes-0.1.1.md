@@ -1,6 +1,6 @@
 # Fixes for 0.1.1
 
-Status: **collecting** · Source: live testing on a real board (2026-11-03), and the workers'
+Status: **in progress** (reviewed 2026-11-03; contracts updated for F3, F4 and F14) · Source: live testing on a real board (2026-11-03), and the workers'
 completion notes. Every fix goes through the verification gate. Contract changes are marked;
 only the orchestrator edits `01-contracts.md`.
 
@@ -77,12 +77,16 @@ under `/ext/needsyou/`.
 ### F8 (P3): The startup retention run keeps ticking
 **Problem:** the `retention-boot` sweep does its work once, then wakes every 30 s for nothing, and
 its run-once flag does not reset when the extension is turned off and on.
-**Change:** keep the sweep (sweeps have only `everyMs`), but reset the flag in a `deactivate`
-manifest hook, or derive "first run" from activation time. Document the choice in
-`docs/notes/lifecycle.md`.
+**Change (decided after review):** keep the sweep (sweeps have only `everyMs`). Replace the closure
+flag with a `WeakSet` of the store instances it has already run for. The store is built afresh on
+each activation, so the run repeats once after every enable, and no manifest change is needed.
+Document this in `docs/notes/lifecycle.md`.
+**Acceptance:** tests show one run per store instance, and a second run for a new instance.
 
 ### F9 (P3): Version and changelog
-**Change:** bump to 0.1.1 in `package.json`, and add a `CHANGELOG.md` entry listing the fixes.
+**Change:** bump to 0.1.1 in `package.json`, regenerate the lockfile
+(`npm install --package-lock-only --ignore-scripts`, which the lockfile-in-sync hook checks), and add
+a `CHANGELOG.md` entry listing the fixes.
 
 ## From the human's testing
 
@@ -98,8 +102,12 @@ manifest hook, or derive "first run" from activation time. Document the choice i
   request_human_input again. The human will not see a question you write in chat."
 - Keep the no-spawner variant's meaning, in the same imperative style.
 
-**Acceptance:** tests pin both texts. Re-run the spawned-worker scenario: each worker mails its
-spawner, and none asks in chat.
+**Acceptance:**
+- Tests pin both texts.
+- Update `scripts/dev-smoke.mjs`'s refusal expectation in the same commit, so the boot smoke stays
+  green.
+- Re-run the spawned-worker scenario: each worker mails its spawner, and none asks in chat. This is
+  the human's live re-test.
 
 ### F11 (P1): Spawners don't know their workers' questions come to them
 **Seen:** the spawning session told the human "their questions … will reach you from those

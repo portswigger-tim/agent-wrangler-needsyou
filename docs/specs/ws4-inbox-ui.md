@@ -1,4 +1,7 @@
-# WS-4 — "Needs you" UI (triage queue, badge, toasts, card pill)
+# WS-4 — "Needs you" UI (triage queue, badge, card pill)
+
+> **0.1.1:** toasts are removed (fixes F14), resolved items open read-only (F15), and the icon is a
+> silhouette (F16). See `fixes-0.1.1.md`. The toast sections below describe 0.1.0 only.
 
 **Depends on:** WS-1 merged · **Parallel with:** WS-2, WS-3, WS-5 · **Branch:** `ws4-inbox-ui`
 **Read first:** `00-overview.md`, `01-contracts.md` (§2, §4, §5, §7, §8, §10), agent-wrangler

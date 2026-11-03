@@ -90,7 +90,7 @@ interface Item {
 }
 ```
 
-- **Unread:** `state === 'open' && readAt === null`. It only decides toasts and the row dot,
+- **Unread:** `state === 'open' && readAt === null`. It only decides the row dot (toasts were removed in 0.1.1, F14),
   never the order or the badge.
 - **Needs action:** `state === 'open'`, or an `answered` item whose delivery `failed`.
 - **Validation:** `validateAgentRequest(args) -> { ok, value | error }` and `normaliseItem(raw)`
@@ -145,7 +145,9 @@ graph: ({ host }) => ({ inbox: {
   unread,     // open && readAt === null
   open,       // open + answered-with-failed-delivery
   items,      // open + answered, then resolved updated < 24 h ago; ≤200, newest first
-  sessions: { [sessionId]: { name, taskId, taskName, spawnedBy, canAsk } }, // for item sessions AND every session with spawnedBy set
+  sessions: { [sessionId]: { name, taskId, taskName, spawnedBy, canAsk, canAskOverride } },
+  // listed: item sessions, every session with spawnedBy set, and each listed session's spawner (0.1.1, F4).
+  // canAskOverride: true | false | null (null = no override, the default applies) (0.1.1, F3).
 }})
 ```
 
@@ -200,7 +202,6 @@ peer message inviting a `send_message` reply to an address that isn't a session.
 
 | key | type | fallback in code | consumer |
 | --- | --- | --- | --- |
-| `notifyToasts` | toggle | `true` | WS-4 |
 | `includeTransientApiErrors` | toggle | `false` | WS-3 |
 | `maxOpenPerSession` | number, 1–20 | `5` | WS-1 store / WS-2 tool |
 | `retentionDays` | number, 1–90 | `7` | WS-5 |
