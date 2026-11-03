@@ -13,7 +13,9 @@ output that does *not* need the human, which buries the real asks.
 
 ## 2. Product goal
 
-An **Inbox**: a mailbox-style view listing only what needs the human to **decide or act**.
+A **"Needs you"** view (extension id `inbox`): a triage queue listing only what needs the human to
+**decide or act**, ordered by the cost of waiting. It is glanceable like a live feed, self-clearing
+and usually empty, and is worked one item at a time with **Next**.
 "New mail" appears only when a new decision or action is **required**. Everything else stays out:
 progress, finished sessions, peer mail, FYIs.
 

@@ -1,4 +1,4 @@
-# WS-4 — Inbox UI (view, badge, toasts, card pill)
+# WS-4 — "Needs you" UI (triage queue, badge, toasts, card pill)
 
 **Depends on:** WS-1 merged · **Parallel with:** WS-2, WS-3, WS-5 · **Branch:** `ws4-inbox-ui`
 **Read first:** `00-overview.md`, `01-contracts.md` (§2, §4, §5, §7, §8, §10), agent-wrangler
@@ -10,8 +10,13 @@ a large view done well.
 
 ## Goal
 
-A mailbox-style view that shows only required actions, with the "new mail" count on the rail, a
-toast when new mail arrives, and quick answering.
+A **triage queue** of what is stuck on the human right now. It is glanceable like a live feed
+(self-clearing, usually empty) and is worked like a queue (most important first, decide in place,
+move to the next).
+
+The headline number is **how much is waiting on you**, not unread mail. Items leave on their own
+when the need is resolved, by the human, the agent or the terminal. The extension id stays
+`inbox`; the user-facing name is **"Needs you"**.
 
 ## Owned files
 
@@ -29,19 +34,31 @@ public/*.test.js           # happy-dom or pure-function tests
 
 ## UX spec
 
-**Rail button:** `view` contribution `{ id: 'inbox', label: 'Inbox', icon: <inbox svg>, badge: (graph) => graph.inbox?.unread ?? 0 }`.
-The badge returns `0` (no badge) when there is no unread item.
+**Rail button:** `view` contribution `{ id: 'inbox', label: 'Needs you', icon: <bell-dot or inbox svg>, badge: (graph) => graph.inbox?.open ?? 0 }`.
+The badge counts **open items** (contracts §4 `open`), not unread ones, and is `0` (no badge) when nothing is waiting.
 
 **Layout:** two panes. On widths under 900 px it collapses to list → detail with a Back button.
 
 *List pane*, top to bottom:
-1. Header "Inbox", the count "N need you", and a filter segmented control: **Needs you** (default:
-   `open` + failed-delivery `answered`) · **Done (24 h)** (resolved).
-2. Rows grouped **High urgency** first, then by `createdAt` desc. A row shows: an unread dot, a kind
-   icon/label (`Decision`, `Approval`, `Question`, `Action`, `Blocked`), the title (ellipsis), the
-   session name · task name, and relative age. A delivery `failed` row shows a red "Not delivered" tag.
-3. Empty state: "Nothing needs you right now." (no illustration needed).
-4. Status items for sessions with `spawnedBy` set show "spawned by <spawner name>", from
+1. Header "Needs you", the count "N waiting", and a **Next** button (also the `n` key): it selects
+   the top item, focuses its primary control, and after an answer or dismiss moves on to the next.
+2. **The queue**, ordered by cost of waiting. `queueOrder(items)` is a pure, exported and tested
+   function:
+   1. `blocked` (status) items, oldest first: the session is stopped.
+   2. blocking agent items with `urgency: 'high'`, oldest first
+   3. other blocking agent items, oldest first
+   4. non-blocking agent items, oldest first
+   5. `answered` items with failed delivery last, tagged red "Not delivered"
+
+   A row shows: a kind icon and label (`Blocked`, `Decision`, `Approval`, `Question`, `Action`),
+   the title (ellipsis), session name · task name, and a **waiting-for** age ("waiting 12m").
+   Unread items carry a small dot, but unread doesn't change the order.
+3. **Recently resolved** strip below the queue, collapsed by default: resolved items from the last
+   24 h, with the reason ("answered", "cleared in terminal", "withdrawn"). It is there for
+   reassurance, not as an archive. An item resolving while it is selected fades out, and selection
+   moves to the next item.
+4. Empty state: "Nothing needs you right now." (no illustration needed).
+5. Status items for sessions with `spawnedBy` set show "spawned by <spawner name>", from
    `graph.inbox.sessions`, so the human has context.
 
 **"Can ask the human" card action** (`public/inbox-can-ask.js`, a `card.action` value slot):
@@ -67,19 +84,22 @@ The badge returns `0` (no badge) when there is no unread item.
 - Opening an item in the detail pane sends `inbox-mark-read {ids:[id]}` once (track sent ids so
   it doesn't repeat every tick).
 
-**Keyboard** (only while the view is active): `j`/`k` or ↑/↓ move the selection, `Enter` opens
-it, `1`–`6` choose an option, `e` dismisses. Use plain listeners scoped to the view element
+**Keyboard** (only while the view is active): `n` next, `j`/`k` or ↑/↓ move the selection, `Enter`
+opens it, `1`–`6` choose an option, `e` dismisses. After an answer or dismiss, selection advances
+to the next item in queue order. Use plain listeners scoped to the view element
 (focus inside it), not `api.keys.bind`. That avoids the manifest `keybindings` disclosure in v1.
 
-**New-mail toast** (`inbox-notify.js`): on each graph, diff `items` ids where `state === 'open' &&
-readAt === null` against the previous set. A **seeding rule** applies, as in core's `notifier.js`:
+**Interrupt only when work has stopped** (`inbox-notify.js`): on each graph, diff `items` ids where
+`state === 'open' && readAt === null` against the previous set. Only items that stop a session
+raise a toast: `blocked` items and blocking agent items. Non-blocking agent items just appear in
+the queue. A **seeding rule** applies, as in core's `notifier.js`:
 the first graph after load notifies nothing. For each new id, if `api.settings().notifyToasts !==
-false`, call `api.ui.notify({ id: item.id, title: 'Inbox: ' + kindLabel, body: title, actions: [{id:'open', label:'Open', primary:true}, {id:'session', label:'Go to session'}] })`.
+false`, call `api.ui.notify({ id: item.id, title: 'Needs you: ' + kindLabel, body: title, actions: [{id:'open', label:'Open', primary:true}, {id:'session', label:'Go to session'}] })`.
 `open` navigates to `#view=ext:inbox:inbox` and selects the item. `session` calls `api.openSession`.
 Withdraw the toast (`api.ui.withdraw(id)`) when the item leaves `open` or becomes read. At most
 3 toasts at once: past that, show one summary toast `id: 'summary'`.
 
-**Card pill** (`inbox-pill.js`): `card.pill` `{ id: 'inbox', label: 'Inbox requests' }`. It renders
+**Card pill** (`inbox-pill.js`): `card.pill` `{ id: 'inbox', label: 'Needs you' }`. It renders
 "📬 N" (with `title` = first item title) on cards with N open items, and nothing otherwise. Click →
 open the view with that session's first item selected. Its `update(el, session, graph)` also calls
 `observer.update(graph)`, **at most once per graph object** (compare by identity), because the pill
@@ -96,12 +116,15 @@ observer's internals.
 
 ## Acceptance criteria
 
-- [ ] Render tests (pure helpers or happy-dom): list grouping/sorting, filter, empty state, failed
+- [ ] `queueOrder` tests cover every tier and tie-breaking by age. Next / auto-advance moves
+      through the queue in that order, including when the selected item resolves mid-view.
+- [ ] Toasts only for blocked and blocking items; none for non-blocking requests.
+- [ ] Render tests (pure helpers or happy-dom): queue, resolved strip, empty state, failed
       tag, detail per kind/state, markdown only in the body container, agent text escaped elsewhere
       (inject `<img onerror>` in the title and assert it is inert).
 - [ ] Notify tests: seeding (no toast on the first graph), one toast per new item, the setting off
       suppresses it, withdraw on read/resolve, the summary toast above 3.
-- [ ] The badge equals `graph.inbox.unread`. Mark-read is sent once per item.
+- [ ] The badge equals `graph.inbox.open`. Mark-read is sent once per item.
 - [ ] In-place patching: a graph tick with an unchanged item set does not replace row elements
       (assert node identity) and keeps the scroll position and text-box contents.
 - [ ] Manual: works in Dark and Light and at 375 px wide; keyboard flow answers a decision with no mouse.

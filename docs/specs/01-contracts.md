@@ -217,6 +217,12 @@ in `ws2-agent-requests.md`.
     the `card.pill` `update`, deduplicated by graph identity
   - doesn't touch the observer's internals
 
-## 11. Events
+## 11. Deferred to v1.1 (do not build)
+
+"Proceed unless vetoed" requests: `default_option` + `proceed_after_minutes` on
+`request_human_input`, with a countdown in the queue. This is an item-model change, so it waits
+until v1 ships.
+
+## 12. Events
 
 None in v1 (no `events` capability). v1.1 adds `ext:inbox:attention` (overview §8).
