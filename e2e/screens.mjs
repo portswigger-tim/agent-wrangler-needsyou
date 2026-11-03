@@ -130,6 +130,7 @@ try {
   await shot(page, 'board-empty', { note: 'board, nothing needed: no pills, no rail badge' });
   await view(page);
   await shot(page, 'queue-empty', { note: 'the empty queue' });
+  expect(await page.locator('.ibx-next[aria-disabled="true"]').count() === 1, 'Next is disabled on an empty queue');
 
   // ── 2. Every status interruption ───────────────────────────────────────────
   for (const [sid, need] of Object.entries(NEEDS)) STATUS.set(sid, { status: 'needs-you', ...need });
@@ -217,6 +218,24 @@ try {
   console.log('queue order:', JSON.stringify(st.rows));
   notes.push(`(queue order: ${st.rows.join(' | ')})`);
   await shot(page, 'queue-full', { note: 'the full queue, first item selected' });
+  const q = await page.evaluate(() => [...document.querySelectorAll('.ibx-queue .ibx-row')].map((r) => ({
+    label: r.querySelector('.ibx-row-kind-label')?.textContent,
+    title: r.querySelector('.ibx-row-title')?.textContent,
+    alarm: r.classList.contains('ibx-alarm'),
+    status: r.classList.contains('ibx-kind-blocked'),
+    urgent: r.querySelector('.ibx-tag-urgent')?.textContent,
+  })));
+  notes.push(`(queue labels: ${q.map((r) => `${r.label}${r.alarm ? '*' : ''}`).join(' | ')})`);
+  const statusLabels = new Set(q.filter((r) => r.status).map((r) => r.label));
+  expect(q.filter((r) => r.alarm).length === 2, `only the API error and the container failure are red (${q.filter((r) => r.alarm).map((r) => r.title).join(', ')})`);
+  expect(statusLabels.size >= 6, `status items carry their own labels (${[...statusLabels].join(', ')})`);
+  // Tier 0 is the status items and urgent requests, oldest first (F4). Here
+  // the status needs were raised first, so the approval follows them.
+  const forceAt = q.findIndex((r) => /Force-push/.test(r.title));
+  const firstNormal = q.findIndex((r) => !r.status && !r.urgent);
+  expect(forceAt >= 0 && forceAt < firstNormal && q[forceAt].urgent === 'Urgent',
+    `the urgent approval sorts with the blockers, before every other request, tagged (at ${forceAt})`);
+  expect(await page.locator('.ibx-detail .ibx-d-title').count() === 1, 'the queue opens on its first item');
 
   const count = await openRows(page).count();
   for (let i = 0; i < count; i++) {
@@ -275,6 +294,7 @@ try {
     await recent.click();
     await page.waitForTimeout(300);
     await shot(page, 'resolved-readonly', { note: 'a resolved item: read-only' });
+    expect(await page.locator('.ibx-d-readonly button').count() === 0, 'a resolved item has no button row');
   }
 
   // ── 7. Light theme, the same state ─────────────────────────────────────────
@@ -290,6 +310,9 @@ try {
   await rowTitled(page, 'API error').click().catch(() => {});
   await page.waitForTimeout(300);
   await shot(page, 'light-api-error', { note: 'light: high-urgency status item' });
+  await rowTitled(page, 'caching spike').click().catch(() => {});
+  await page.waitForTimeout(300);
+  await shot(page, 'light-failed-delivery', { note: 'light: the failed delivery, its tag and the archived session named' });
   await context.close();
 
   // ── 8. Phone width ─────────────────────────────────────────────────────────

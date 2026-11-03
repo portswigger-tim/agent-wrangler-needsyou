@@ -57,7 +57,7 @@
 .ibx-row:hover { background: var(--surface); }
 .ibx-row.ibx-selected { background: var(--surface-2); border-color: var(--border-muted); }
 .ibx-row.ibx-leaving { opacity: 0; pointer-events: none; }
-.ibx-row-kind { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--fg-muted); min-width: 6.5em; }
+.ibx-row-kind { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--fg-muted); min-width: 7.5em; }
 /* Only a real failure (a container or API error) is red; other status causes
    ask for something and keep the default colour (F1). */
 .ibx-alarm .ibx-row-kind, .ibx-d-kind.ibx-alarm { color: var(--red-fg, var(--red)); }
@@ -100,6 +100,7 @@
 .ibx-from-terminal { display: flex; flex-direction: column; gap: 6px; }
 .ibx-from-terminal-head { margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); }
 .ibx-terminal-text { white-space: pre-wrap; font-family: var(--font-mono, monospace); font-size: 12px; }
+.ibx-terminal-text :is(p, pre) { margin: 0; }
 .ibx-body { font-size: 13px; line-height: var(--prose-leading, 1.55); overflow-wrap: anywhere; padding: 10px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border-muted); }
 .ibx-body > :first-child { margin-top: 0; }
 .ibx-body > :last-child { margin-bottom: 0; }
@@ -175,6 +176,8 @@
   .ibx-back { display: inline-flex; }
   .ibx-row-kind-label { display: none; }
   .ibx-row-kind { min-width: 0; }
+  /* A tag and the age stack, so a tagged row keeps room for its title. */
+  .ibx-row-side { flex-direction: column; align-items: flex-end; gap: 2px; }
   .ibx-detail { padding: 12px 14px; }
   .ibx-terminal { margin: 0 14px 12px; }
 }

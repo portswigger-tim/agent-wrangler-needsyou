@@ -244,7 +244,8 @@ export function createInboxView(el, api, {
   }
 
   // A status item: what to do (one sentence per cause), then what the
-  // terminal said, once. Terminal text is shown as it came, not as markdown.
+  // terminal said, once. reconcile stores it as escaped markdown, so it goes
+  // through the board's sanitiser like any other body.
   function statusText(item) {
     if (!isReadOnly(item)) detailEl.appendChild(make('p', 'ibx-d-guidance', guidanceFor(item)));
     const said = terminalText(item);
@@ -252,7 +253,9 @@ export function createInboxView(el, api, {
     const box = make('section', 'ibx-from-terminal');
     box.setAttribute('aria-label', 'From the terminal');
     box.appendChild(make('h4', 'ibx-from-terminal-head', 'From the terminal'));
-    box.appendChild(make('div', 'ibx-body ibx-terminal-text', said));
+    const body = make('div', 'ibx-body ibx-terminal-text chat-prose');
+    body.innerHTML = api.ui?.markdownPreview ? api.ui.markdownPreview(said) : '';
+    box.appendChild(body);
     detailEl.appendChild(box);
   }
 

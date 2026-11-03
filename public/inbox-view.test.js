@@ -271,7 +271,7 @@ test('markdown lands only in the body container; agent text elsewhere is inert t
   assert.equal(text(v.q('.ibx-d-session')), XSS);
   assert.ok(v.rows().some((r) => text(r.querySelector('.ibx-row-title')) === `Title ${XSS}`));
   v.view.select(s.id);
-  assert.equal(text(v.q('.ibx-terminal-text')), XSS, 'terminal text is plain text, not markdown');
+  assert.equal(text(v.q('.ibx-terminal-text')), XSS, 'terminal text goes through the sanitiser');
   assert.equal(v.el.querySelectorAll('img').length, 0);
   assert.equal(globalThis.pwned, undefined);
 });
