@@ -114,13 +114,16 @@ helper sessions from filling your list. When one tries, the tool refuses and
 gives it the name of the session that started it. The helper then sends its
 question to that session instead.
 
-You can change this for one session from the menu on its card:
+You can change this for any session from the menu on its card. The menu shows
+one item. Its name says what it will do, and the grey text beside it says what
+the session does now:
 
-- **Allow asking the human directly** lets a helper session ask you.
-- **Route questions to orchestrator** stops a session from asking you directly.
-- **Use default** forgets your choice for that session. It shows only after
-  you have made a choice. The menu marks the current setting "default" until
-  you change it.
+- **Let it ask you directly** lets a helper session ask you, or lets a session
+  that you stopped ask you again.
+- **Send its questions to the orchestrator** returns a helper session to its
+  usual setting.
+- **Stop it asking you directly** stops a session that you started from asking
+  you.
 
 An agent cannot change this setting.
 
