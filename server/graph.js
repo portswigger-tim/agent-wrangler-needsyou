@@ -4,7 +4,7 @@ import { isUnread, needsAction } from './item.js';
 export const RESOLVED_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const MAX_GRAPH_ITEMS = 200;
 
-const MISSING = Object.freeze({ name: '', taskId: null, taskName: '', spawnedBy: null, canAsk: true });
+const MISSING = Object.freeze({ name: '', taskId: null, taskName: '', spawnedBy: null, canAsk: true, canAskOverride: null });
 
 // Runs on every ~4 s rebuild, where nothing may throw: every host read is
 // guarded and a failed lookup reads as an absent session or task.
@@ -22,7 +22,15 @@ function sessionEntry(host, store, sessionId, itemTaskId) {
   const taskId = s.taskId ?? itemTaskId ?? null;
   const taskName = taskId ? attempt(() => host.tasks.get(taskId)?.name, '') : '';
   const allowed = attempt(() => canAsk(host, store, sessionId).allowed, true);
-  return { name: s.name ?? '', taskId, taskName, spawnedBy: s.spawnedBy ?? null, canAsk: allowed !== false };
+  const override = attempt(() => store.canAskOverride(sessionId), null);
+  return {
+    name: s.name ?? '',
+    taskId,
+    taskName,
+    spawnedBy: s.spawnedBy ?? null,
+    canAsk: allowed !== false,
+    canAskOverride: typeof override === 'boolean' ? override : null,
+  };
 }
 
 // contracts §4. Live items first so the cap can only ever cut resolved
@@ -41,6 +49,13 @@ export function buildInboxGraph(host, { now = Date.now() } = {}) {
   }
   const sessions = {};
   for (const [sid, taskId] of taskOf) sessions[sid] = sessionEntry(host, store, sid, taskId);
+  // Each listed session's spawner too, so "spawned by X" has a name even when
+  // X has no item and wasn't itself spawned (contracts §4, 0.1.1 F4). Every
+  // spawned session is already listed, so one pass reaches every spawner.
+  for (const entry of Object.values({ ...sessions })) {
+    const spawner = entry.spawnedBy;
+    if (spawner && !sessions[spawner]) sessions[spawner] = sessionEntry(host, store, spawner, null);
+  }
 
   return {
     rev: store.rev(),

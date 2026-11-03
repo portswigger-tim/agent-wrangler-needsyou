@@ -75,10 +75,43 @@ test('sessions: item sessions and every spawned session, with names, tasks and c
   store.create(agent('s1'));
   store.create(agent('missing', { taskId: 't1' }));
   assert.deepEqual(buildInboxGraph(host).sessions, {
-    s1: { name: 'Planner', taskId: 't1', taskName: 'Inbox', spawnedBy: null, canAsk: true },
-    missing: { name: '', taskId: null, taskName: '', spawnedBy: null, canAsk: true },
-    w1: { name: 'Worker', taskId: 't1', taskName: 'Inbox', spawnedBy: 's1', canAsk: false },
+    s1: { name: 'Planner', taskId: 't1', taskName: 'Inbox', spawnedBy: null, canAsk: true, canAskOverride: null },
+    missing: { name: '', taskId: null, taskName: '', spawnedBy: null, canAsk: true, canAskOverride: null },
+    w1: { name: 'Worker', taskId: 't1', taskName: 'Inbox', spawnedBy: 's1', canAsk: false, canAskOverride: null },
   });
+});
+
+test('sessions: canAskOverride is null by default, else the human\'s explicit choice', () => {
+  const { host, store } = setup({
+    sessions: [
+      { sessionId: 'o1', name: 'Orchestrator' },
+      { sessionId: 'w1', spawnedBy: 'o1' },
+      { sessionId: 'w2', spawnedBy: 'o1' },
+      { sessionId: 'w3', spawnedBy: 'o1' },
+    ],
+  });
+  store.setCanAskOverride('w2', true);
+  store.setCanAskOverride('w3', false);
+  const { sessions } = buildInboxGraph(host);
+  assert.deepEqual([sessions.w1.canAsk, sessions.w1.canAskOverride], [false, null]);
+  assert.deepEqual([sessions.w2.canAsk, sessions.w2.canAskOverride], [true, true]);
+  assert.deepEqual([sessions.w3.canAsk, sessions.w3.canAskOverride], [false, false]);
+  store.setCanAskOverride('w2', null);
+  assert.deepEqual([buildInboxGraph(host).sessions.w2.canAskOverride], [null]);
+});
+
+test('sessions: a top-level spawner with no item is listed by name (F4)', () => {
+  const { host } = setup({
+    sessions: [
+      { sessionId: 'o1', name: 'Orchestrator', taskId: 't1' },
+      { sessionId: 'w1', name: 'Worker', spawnedBy: 'o1' },
+      { sessionId: 'other', name: 'Unrelated' },
+    ],
+    tasks: [{ taskId: 't1', name: 'Inbox' }],
+  });
+  const { sessions } = buildInboxGraph(host);
+  assert.deepEqual(Object.keys(sessions).sort(), ['o1', 'w1']);
+  assert.deepEqual(sessions.o1, { name: 'Orchestrator', taskId: 't1', taskName: 'Inbox', spawnedBy: null, canAsk: true, canAskOverride: null });
 });
 
 test('host lookups that throw read as an absent session instead of breaking the tick', () => {
@@ -86,5 +119,5 @@ test('host lookups that throw read as an absent session instead of breaking the 
   store.create(agent('s1'));
   host.sessions.get = () => { throw new Error('boom'); };
   host.sessions.list = () => { throw new Error('boom'); };
-  assert.deepEqual(buildInboxGraph(host).sessions, { s1: { name: '', taskId: null, taskName: '', spawnedBy: null, canAsk: true } });
+  assert.deepEqual(buildInboxGraph(host).sessions, { s1: { name: '', taskId: null, taskName: '', spawnedBy: null, canAsk: true, canAskOverride: null } });
 });

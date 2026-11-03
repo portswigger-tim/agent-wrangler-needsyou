@@ -46,7 +46,12 @@ hook payloads, the settings view, `host.deliver` results) is in `AGENTS.md`,
   history, never something that needs action.
 - `graph.inbox.sessions` covers every session that has an item **and** every
   session with `spawnedBy` set, so the card menu's "may ask" action has
-  something to read before the worker has asked anything.
+  something to read before the worker has asked anything. It also lists each
+  listed session's spawner (0.1.1), so "spawned by X" has X's name even when X
+  has no item.
+- Each entry has the effective `canAsk` and `canAskOverride` (`true`, `false`,
+  or `null` when the human hasn't chosen). The card menu needs the override to
+  show "default" honestly and to offer **Use default**.
 - The contributor runs on every rebuild (about 4 s) and must not throw, so
   every host read is guarded and a failed lookup reads as an absent session.
 

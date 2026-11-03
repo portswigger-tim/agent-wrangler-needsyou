@@ -45,6 +45,11 @@ control router (a refused answer, for example) are the board's own and stay.
 
 - The card-menu hint can't tell "the default" from "an explicit override",
   because the graph has no override flag. It shows the effective value.
-- A spawner's name falls back to `graph.sessions`, then to a short id.
+- A spawner's name comes from `graph.inbox.sessions`, which lists every
+  listed session's spawner (0.1.1). It falls back to `graph.sessions`, then
+  to a short id.
+- The card menu's "can ask" item reads `canAskOverride`: the hint is "default"
+  only when it is `null`, and **Use default** (`allowed: null`) shows only when
+  an override exists, including on a top-level session the human turned off.
 - `public/inbox-fixtures.js` is test-only but is served under `/ext/needsyou/`.
   It's harmless.

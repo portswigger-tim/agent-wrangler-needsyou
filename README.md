@@ -106,6 +106,9 @@ You can change this for one session from the menu on its card:
 
 - **Allow asking the human directly** lets a helper session ask you.
 - **Route questions to orchestrator** stops a session from asking you directly.
+- **Use default** forgets your choice for that session. It shows only after
+  you have made a choice. The menu marks the current setting "default" until
+  you change it.
 
 An agent cannot change this setting.
 
