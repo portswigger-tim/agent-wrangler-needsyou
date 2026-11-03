@@ -67,6 +67,25 @@ when nothing is open. Row ages for open items keep "waiting 5m": that is how lon
 `graph.inbox.sessions[sid].name` first. Clip a long label to 60 characters with "…".
 **Acceptance:** a model test with a session that has only `label`.
 
+## C5: The card-menu item is one tick toggle
+
+**Problem:** the can-ask item (0.1.2 F7) changes its label with the state, which takes reading. The
+human asked for one fixed label with a tick, like core's **Auto-fix PR checks ✓**.
+**Change** (`public/inbox-can-ask.js`):
+- One item on every listed card, with a fixed label: **Let it ask you directly**, and the silhouette
+  icon as now.
+- The hint is `✓` when the session can ask the human (effective `canAsk === true`), and absent
+  otherwise. An extension item can only show escaped text there, not core's SVG `CHECK_ICON`, so
+  the tick is a text character. The human chose this over an upstream `checked` field.
+- The click flips the effective state, with the same four-state logic as 0.1.2:
+  - spawned, no override (unticked) → `allowed: true`
+  - spawned, allowed (ticked) → `allowed: null`
+  - top-level, no override (ticked) → `allowed: false`
+  - top-level, refused (unticked) → `allowed: null`
+  - Leftover overrides behave as in 0.1.2.
+**Acceptance:** `inbox-can-ask` tests for all four states (label, tick or not, value sent). e2e:
+step 07 still clicks "Let it ask you directly", and shot 08 shows the ticked state.
+
 ## How it runs
 
 - One UI worker on branch `fixes-0-1-4` in a worktree. It owns `public/**`, their tests,
