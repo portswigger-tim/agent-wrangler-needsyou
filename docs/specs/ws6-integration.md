@@ -22,7 +22,12 @@ README.md CHANGELOG.md docs/notes/*.md
 
 1. **validate-manifest**: runs the real loader (`AW_REPO`) and asserts no quarantine. Also asserts
    that the 3 tools, the 6 handler types, the `inbox` skill, the 5 settings, the `view` client
-   asset and the sweeps are registered.
+   asset and the sweeps are registered. Also run the tools through agent-wrangler's **real MCP
+   server** (`server/mcp/server.js` `buildMcpServer`, or its `McpServer` from the SDK) with an
+   in-memory client: `tools/list` shows the 3 tools with their schemas, one valid `tools/call`
+   succeeds and one invalid one is rejected. The extension uses zod 4 while agent-wrangler's SDK
+   sits beside zod 3. The orchestrator proved this works with the SDK directly on 2026-11-03;
+   this keeps it proven.
 2. **boot-smoke** boots a wrangler on a temp `AW_DATA_DIR` and a free port, with this repo copied
    to `extensions/needsyou`. `dev-smoke.mjs` then:
    - connects to the control socket and waits for a graph with `inbox`
@@ -46,7 +51,10 @@ README.md CHANGELOG.md docs/notes/*.md
    whose question arrives at the orchestrator by mail; answer the decision from "Needs you"; approve
    the permission in the terminal; check that both close, the badge goes to 0 and the toasts
    withdraw.
-   Also settle WS-3's open question: have a Claude session call `AskUserQuestion`, and record
+   Also run WS-2's compliance eval (its procedure is in `docs/notes/agent-requests.md`): 3 Claude
+   and 3 Codex board-launched sessions asked to end by asking which improvement to do next. Pass
+   means an open agent item exists before the turn ends. Target ≥ 5/6, with a control run with the
+   extension off. Also settle WS-3's open question: have a Claude session call `AskUserQuestion`, and record
    whether the graph shows `needs-you` and what `waitingFor` says.
 6. Write `docs/notes/<area>.md` for each WS's non-obvious decisions, and link them from
    `AGENTS.md`. The orchestrator forwards each worker's completion mail. Editing `AGENTS.md` for
