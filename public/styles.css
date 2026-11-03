@@ -1,1 +1,147 @@
-/* Owned by WS-4 — stub from WS-1. */
+/* "Needs you" (extension id needsyou). Every class is ibx-prefixed and every
+   colour is a board CSS variable, so Dark, Light and extension themes all
+   apply. Loaded with the client module and removed with it. */
+
+/* The view's slot element fills the board's .ext-view host, so each pane can
+   scroll on its own. */
+.ext-slot:has(> .ibx-root) { height: 100%; }
+
+.ibx-root {
+  container-type: inline-size;
+  display: grid; grid-template-columns: minmax(280px, 2fr) 3fr;
+  height: 100%; min-height: 0;
+  color: var(--fg); background: var(--bg);
+  outline: none;
+}
+.ibx-icon { width: 14px; height: 14px; flex: 0 0 auto; }
+[hidden].ibx-empty, [hidden].ibx-recent, [hidden].ibx-terminal, .ibx-pill[hidden] { display: none; }
+
+/* ── buttons ─────────────────────────────────────────────────────────────── */
+.ibx-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 6px;
+  border: 1px solid var(--border-muted); background: var(--surface-2); color: var(--fg);
+  cursor: pointer;
+}
+.ibx-btn:hover:not(:disabled) { border-color: var(--accent); }
+.ibx-btn:disabled { opacity: 0.5; cursor: default; }
+.ibx-btn:focus-visible, .ibx-row:focus-visible, .ibx-option:focus-visible, .ibx-text:focus-visible, .ibx-pill:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+.ibx-primary { background: var(--accent); color: var(--accent-fg, var(--bg)); border-color: var(--accent); }
+.ibx-danger { color: var(--red-fg, var(--fg)); background: var(--danger-bg, var(--surface-2)); border-color: var(--danger-border, var(--red)); }
+.ibx-link { border: 0; background: none; padding: 0; color: var(--link-fg, var(--accent)); text-decoration: underline; text-underline-offset: 2px; }
+.ibx-link:hover:not(:disabled) { border: 0; }
+
+/* ── list pane ───────────────────────────────────────────────────────────── */
+.ibx-list-pane {
+  display: flex; flex-direction: column; min-height: 0; overflow-y: auto;
+  border-right: 1px solid var(--border-muted);
+}
+.ibx-head {
+  position: sticky; top: 0; z-index: 1;
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 14px; background: var(--bg); border-bottom: 1px solid var(--border-muted);
+}
+.ibx-heading { margin: 0; font-size: 15px; font-weight: 700; }
+.ibx-count { font-size: 12px; color: var(--fg-muted); }
+.ibx-next { margin-left: auto; }
+
+.ibx-queue { display: flex; flex-direction: column; padding: 6px; gap: 2px; }
+.ibx-row {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 6px; cursor: pointer;
+  border: 1px solid transparent; outline: none;
+  transition: opacity 0.25s ease, background 0.1s;
+}
+.ibx-row:hover { background: var(--surface); }
+.ibx-row.ibx-selected { background: var(--surface-2); border-color: var(--border-muted); }
+.ibx-row.ibx-leaving { opacity: 0; pointer-events: none; }
+.ibx-row-kind { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--fg-muted); min-width: 6.5em; }
+.ibx-kind-blocked .ibx-row-kind, .ibx-d-kind.ibx-kind-blocked { color: var(--red-fg, var(--red)); }
+.ibx-row-main { display: flex; flex-direction: column; min-width: 0; }
+.ibx-row-title { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ibx-unread .ibx-row-title { font-weight: 600; }
+.ibx-row-meta { font-size: 11px; color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ibx-row-side { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--fg-muted); white-space: nowrap; }
+.ibx-dot { width: 7px; height: 7px; border-radius: 50%; background: transparent; }
+.ibx-unread .ibx-dot { background: var(--accent); }
+.ibx-tag:empty { display: none; }
+.ibx-tag { padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 600; color: var(--red-fg, var(--fg)); background: var(--red); }
+
+.ibx-empty { margin: 0; padding: 32px 16px; text-align: center; color: var(--fg-muted); font-size: 13px; }
+
+.ibx-recent { margin: 8px 6px 12px; border-top: 1px solid var(--border-muted); padding-top: 6px; }
+.ibx-recent-summary { cursor: pointer; font-size: 11px; color: var(--fg-subtle, var(--fg-muted)); padding: 4px 6px; }
+.ibx-recent-list { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; }
+.ibx-recent-row { display: grid; grid-template-columns: 6.5em 1fr auto; gap: 8px; padding: 4px 10px; font-size: 12px; color: var(--fg-muted); }
+.ibx-recent-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ibx-recent-reason { white-space: nowrap; font-size: 11px; }
+
+/* ── detail pane ─────────────────────────────────────────────────────────── */
+.ibx-detail-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow-y: auto; }
+.ibx-back { display: none; align-self: flex-start; margin: 10px 14px 0; }
+.ibx-detail { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+.ibx-d-placeholder { margin: 32px 0; color: var(--fg-muted); font-size: 13px; text-align: center; }
+.ibx-d-head { display: flex; flex-direction: column; gap: 6px; }
+.ibx-d-kind { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); }
+.ibx-d-title { margin: 0; font-size: 17px; font-weight: 650; overflow-wrap: anywhere; }
+.ibx-d-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 12px; color: var(--fg-muted); }
+.ibx-d-spawned { font-size: 12px; color: var(--fg-muted); }
+.ibx-body { font-size: 13px; line-height: var(--prose-leading, 1.55); overflow-wrap: anywhere; padding: 10px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border-muted); }
+.ibx-body > :first-child { margin-top: 0; }
+.ibx-body > :last-child { margin-bottom: 0; }
+.ibx-d-waiting { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+
+.ibx-options { display: flex; flex-direction: column; gap: 6px; }
+.ibx-option {
+  display: flex; align-items: flex-start; gap: 10px; text-align: left;
+  font: inherit; padding: 8px 10px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border-muted); background: var(--surface); color: var(--fg);
+}
+.ibx-option:hover:not(:disabled) { border-color: var(--accent); }
+.ibx-option.ibx-chosen { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.ibx-option:disabled { opacity: 0.6; cursor: default; }
+.ibx-option-num { flex: 0 0 auto; min-width: 1.6em; text-align: center; font-size: 11px; font-family: var(--font-mono, monospace); padding: 1px 4px; border-radius: 4px; background: var(--surface-2); color: var(--fg-muted); }
+.ibx-option-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ibx-option-label { font-size: 13px; overflow-wrap: anywhere; }
+.ibx-option-desc { font-size: 12px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.ibx-text {
+  font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 8px; resize: vertical;
+  border: 1px solid var(--border-muted); background: var(--field-bg, var(--surface)); color: var(--fg);
+}
+.ibx-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ibx-hint { font-size: 11px; color: var(--fg-muted); }
+.ibx-dismiss { margin-left: auto; }
+.ibx-confirm { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ibx-confirm-text { margin: 0; font-size: 12px; color: var(--fg-muted); }
+.ibx-answer-choice, .ibx-answer-note { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.ibx-delivery { margin: 0; font-size: 12px; color: var(--fg-muted); }
+.ibx-delivery-failed { color: var(--red-fg, var(--red)); }
+.ibx-terminal { flex: 1 1 auto; min-height: 360px; margin: 0 20px 16px; border: 1px solid var(--border-muted); border-radius: 8px; overflow: hidden; }
+
+/* ── card pill ───────────────────────────────────────────────────────────── */
+.ibx-pill {
+  font: inherit; font-size: 10px; padding: 2px 7px; border-radius: 999px; line-height: normal;
+  border: none; cursor: pointer; white-space: nowrap;
+  color: var(--fg); background: color-mix(in srgb, var(--accent) 22%, var(--surface-2));
+}
+.ibx-pill:hover { background: color-mix(in srgb, var(--accent) 34%, var(--surface-2)); }
+
+/* ── narrow: list, then detail with Back ─────────────────────────────────── */
+@container (max-width: 899px) {
+  .ibx-list-pane, .ibx-detail-pane { grid-column: 1 / -1; grid-row: 1; border-right: 0; }
+  .ibx-detail-pane { display: none; }
+  .ibx-root.ibx-detail-open .ibx-list-pane { display: none; }
+  .ibx-root.ibx-detail-open .ibx-detail-pane { display: flex; }
+  .ibx-back { display: inline-flex; }
+  .ibx-row-kind-label { display: none; }
+  .ibx-row-kind { min-width: 0; }
+  .ibx-detail { padding: 12px 14px; }
+  .ibx-terminal { margin: 0 14px 12px; }
+}
+.ibx-root { grid-template-rows: minmax(0, 1fr); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ibx-row { transition: none; }
+}

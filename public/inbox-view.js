@@ -1,0 +1,594 @@
+// The "Needs you" view: a triage queue (list pane) and the selected item
+// (detail pane), worked one item at a time with Next.
+//
+// Two rules hold everywhere in this file:
+// - Agent-written text (titles, option labels, notes, waitingFor, session and
+//   task names) goes into the DOM with textContent only. The one exception is
+//   the body, which goes through the board's sanitising api.ui.markdownPreview
+//   into its own `.ibx-body` container.
+// - The ~4 s graph tick patches in place. Queue rows are keyed (inbox-dom.js),
+//   and the detail pane is rebuilt only when what it shows changes, so scroll,
+//   focus and a half-typed answer survive a tick.
+import { ICONS, kindIcon } from './icons.js';
+import { patchList, setText, setAttr, setClass } from './inbox-dom.js';
+import {
+  queueOrder, recentItems, kindLabel, resolvedLabel, waitingLabel, ageLabel, sessionMeta,
+  sessionName, spawnedByLabel, inboxOf, isUnread, isFailed, nextAfter, answerPayload,
+} from './inbox-model.js';
+
+export { queueOrder } from './inbox-model.js';
+
+const LEAVE_MS = 250;
+const SEND_TIMEOUT_MS = 10000;
+const DISMISS_WARNING = 'The agent will not be told.';
+
+const SHELL_HTML = `
+  <section class="ibx-list-pane" aria-label="Needs you queue">
+    <header class="ibx-head">
+      <h2 class="ibx-heading">Needs you</h2>
+      <span class="ibx-count"></span>
+      <button type="button" class="ibx-btn ibx-next" title="Next item (n)">Next</button>
+    </header>
+    <div class="ibx-queue" role="listbox" aria-label="Waiting on you"></div>
+    <p class="ibx-empty" role="status">Nothing needs you right now.</p>
+    <details class="ibx-recent">
+      <summary class="ibx-recent-summary"></summary>
+      <div class="ibx-recent-list"></div>
+    </details>
+  </section>
+  <section class="ibx-detail-pane" aria-label="Selected item">
+    <button type="button" class="ibx-btn ibx-back">${ICONS.back}<span>Back</span></button>
+    <div class="ibx-detail"></div>
+    <div class="ibx-terminal" hidden></div>
+  </section>`;
+
+function isTyping(target) {
+  return Boolean(target?.closest?.('textarea, input, select, [contenteditable=""], [contenteditable="true"]'));
+}
+
+export function createInboxView(el, api, { now = () => Date.now(), leaveMs = LEAVE_MS, schedule = setTimeout, cancel = clearTimeout } = {}) {
+  const doc = el.ownerDocument;
+  const root = doc.createElement('div');
+  root.className = 'ibx-root';
+  root.tabIndex = -1;
+  root.innerHTML = SHELL_HTML;
+  el.appendChild(root);
+
+  const q = (sel) => root.querySelector(sel);
+  const countEl = q('.ibx-count');
+  const nextBtn = q('.ibx-next');
+  const queueEl = q('.ibx-queue');
+  const emptyEl = q('.ibx-empty');
+  const recentEl = q('.ibx-recent');
+  const recentSummary = q('.ibx-recent-summary');
+  const recentList = q('.ibx-recent-list');
+  const detailEl = q('.ibx-detail');
+  const terminalEl = q('.ibx-terminal');
+  const backBtn = q('.ibx-back');
+
+  let graph = null;
+  let items = [];
+  let order = [];
+  let prevOrderIds = [];
+  let selectedId = null;
+  let pendingId = null;
+  let detailOpen = false;
+  let wantFocus = false;
+  let confirming = null;
+  let detailKey = null;
+  let terminal = null; // { id, handle }
+  const readSent = new Set();
+  const drafts = new Map();
+  const choices = new Map();
+  const sending = new Map(); // id -> { stamp, timer }
+
+  const byId = (id) => items.find((i) => i.id === id) || null;
+  const selected = () => (selectedId ? order.find((i) => i.id === selectedId) || null : null);
+  const visible = () => el.isConnected && !el.closest('.hidden');
+
+  // ── queue rows ──────────────────────────────────────────────────────────
+  function createRow() {
+    const row = doc.createElement('div');
+    row.setAttribute('role', 'option');
+    row.tabIndex = -1;
+    row.innerHTML = `
+      <span class="ibx-row-kind"><span class="ibx-row-icon"></span><span class="ibx-row-kind-label"></span></span>
+      <span class="ibx-row-main"><span class="ibx-row-title"></span><span class="ibx-row-meta"></span></span>
+      <span class="ibx-row-side"><span class="ibx-dot" aria-hidden="true"></span><span class="ibx-tag"></span><span class="ibx-row-age"></span></span>`;
+    return row;
+  }
+
+  function updateRow(row, item) {
+    const failed = isFailed(item);
+    const unread = isUnread(item);
+    setClass(row, ['ibx-row', `ibx-kind-${item.kind}`, item.id === selectedId ? 'ibx-selected' : '',
+      unread ? 'ibx-unread' : '', failed ? 'ibx-failed' : ''].filter(Boolean).join(' '));
+    row.dataset.id = item.id;
+    setAttr(row, 'aria-selected', String(item.id === selectedId));
+    const icon = row.querySelector('.ibx-row-icon');
+    if (icon.dataset.kind !== item.kind) { icon.innerHTML = kindIcon(item.kind); icon.dataset.kind = item.kind; }
+    setText(row.querySelector('.ibx-row-kind-label'), kindLabel(item.kind));
+    const title = row.querySelector('.ibx-row-title');
+    setText(title, item.title);
+    setAttr(title, 'title', item.title);
+    setText(row.querySelector('.ibx-row-meta'), [sessionMeta(graph, item), spawnedByLabel(graph, item)].filter(Boolean).join(' · '));
+    setText(row.querySelector('.ibx-tag'), failed ? 'Not delivered' : '');
+    setText(row.querySelector('.ibx-row-age'), waitingLabel(item, now()));
+    setAttr(row.querySelector('.ibx-dot'), 'title', unread ? 'Unread' : null);
+  }
+
+  function createRecentRow() {
+    const row = doc.createElement('div');
+    row.className = 'ibx-recent-row';
+    row.innerHTML = '<span class="ibx-recent-kind"></span><span class="ibx-recent-title"></span><span class="ibx-recent-reason"></span>';
+    return row;
+  }
+
+  function updateRecentRow(row, item) {
+    setText(row.querySelector('.ibx-recent-kind'), kindLabel(item.kind));
+    const title = row.querySelector('.ibx-recent-title');
+    setText(title, item.title);
+    setAttr(title, 'title', item.title);
+    setText(row.querySelector('.ibx-recent-reason'), `${resolvedLabel(item)} · ${ageLabel(item.updatedAt, now())} ago`);
+  }
+
+  // ── detail pane ─────────────────────────────────────────────────────────
+  function make(tag, className, text) {
+    const n = doc.createElement(tag);
+    if (className) n.className = className;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function button(className, label, onClick, { disabled = false, title } = {}) {
+    const b = make('button', `ibx-btn ${className}`, label);
+    b.type = 'button';
+    b.disabled = disabled;
+    if (title) b.title = title;
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  function renderDetailKey(item) {
+    if (!item) return 'none';
+    const s = inboxOf(graph)?.sessions?.[item.sessionId];
+    return JSON.stringify([item.id, item.kind, item.source, item.title, item.body, item.options, item.allowFreeText,
+      item.state, item.answer, item.status, item.blocking, s?.name, s?.taskName, sessionMeta(graph, item),
+      spawnedByLabel(graph, item), choices.get(item.id) ?? null, confirming === item.id, sending.has(item.id), terminal?.id === item.id]);
+  }
+
+  function renderDetail() {
+    const item = selected();
+    setClass(root, ['ibx-root', detailOpen && item ? 'ibx-detail-open' : ''].filter(Boolean).join(' '));
+    const key = renderDetailKey(item);
+    if (key === detailKey) {
+      const age = detailEl.querySelector('.ibx-d-age');
+      if (age && item) setText(age, waitingLabel(item, now()));
+      return;
+    }
+    detailKey = key;
+    const active = doc.activeElement;
+    const hadFocus = detailEl.contains(active);
+    const focusRole = hadFocus ? active.dataset?.ibxRole || null : null;
+    const caret = hadFocus && active.tagName === 'TEXTAREA' ? [active.selectionStart, active.selectionEnd] : null;
+    detailEl.replaceChildren();
+    if (!item) {
+      detailEl.appendChild(make('p', 'ibx-d-placeholder', order.length ? 'Select an item, or press n for the next one.' : ''));
+      return;
+    }
+    detailEl.appendChild(detailHead(item));
+    if (item.body) {
+      const body = make('div', 'ibx-body chat-prose');
+      body.innerHTML = api.ui?.markdownPreview ? api.ui.markdownPreview(item.body) : '';
+      detailEl.appendChild(body);
+    }
+    if (item.source === 'status') detailEl.appendChild(statusActions(item));
+    else if (item.state === 'open') detailEl.appendChild(agentOpenActions(item));
+    else detailEl.appendChild(agentAnsweredActions(item));
+    if (focusRole) {
+      const target = detailEl.querySelector(`[data-ibx-role="${focusRole}"]`);
+      if (target && !target.disabled) {
+        target.focus({ preventScroll: true });
+        if (caret && target.tagName === 'TEXTAREA') target.setSelectionRange(caret[0], caret[1]);
+      } else root.focus({ preventScroll: true });
+    }
+  }
+
+  function detailHead(item) {
+    const head = make('header', 'ibx-d-head');
+    const kind = make('span', `ibx-d-kind ibx-kind-${item.kind}`);
+    kind.innerHTML = kindIcon(item.kind);
+    kind.appendChild(make('span', null, kindLabel(item.kind)));
+    head.appendChild(kind);
+    head.appendChild(make('h3', 'ibx-d-title', item.title));
+    const meta = make('div', 'ibx-d-meta');
+    const sessionBtn = button('ibx-link ibx-d-session', sessionName(graph, item.sessionId), () => api.openSession?.(item.sessionId), { title: 'Open session' });
+    meta.appendChild(sessionBtn);
+    const task = inboxOf(graph)?.sessions?.[item.sessionId]?.taskName;
+    if (task) meta.appendChild(make('span', 'ibx-d-task', task));
+    meta.appendChild(make('span', 'ibx-d-age', waitingLabel(item, now())));
+    head.appendChild(meta);
+    const spawned = spawnedByLabel(graph, item);
+    if (spawned) head.appendChild(make('div', 'ibx-d-spawned', spawned));
+    return head;
+  }
+
+  function dismissControls(item, actions) {
+    if (confirming === item.id) {
+      const box = make('div', 'ibx-confirm');
+      box.appendChild(make('p', 'ibx-confirm-text', DISMISS_WARNING));
+      const yes = button('ibx-danger ibx-confirm-yes', 'Dismiss', () => dismiss(item));
+      yes.dataset.ibxRole = 'confirm-yes';
+      const no = button('ibx-confirm-no', 'Cancel', () => { confirming = null; renderDetail(); focusRole('dismiss'); });
+      no.dataset.ibxRole = 'confirm-no';
+      box.append(yes, no);
+      actions.appendChild(box);
+      return;
+    }
+    const b = button('ibx-dismiss', 'Dismiss', () => startDismiss(), { disabled: sending.has(item.id), title: 'Dismiss (e)' });
+    b.dataset.ibxRole = 'dismiss';
+    actions.appendChild(b);
+  }
+
+  function statusActions(item) {
+    const wrap = make('div', 'ibx-d-status');
+    const waiting = item.status?.waitingFor || item.status?.waitingReason || 'Waiting for you in the session.';
+    wrap.appendChild(make('p', 'ibx-d-waiting', waiting));
+    const actions = make('div', 'ibx-actions');
+    const open = button('ibx-primary ibx-open-session', 'Open session', () => api.openSession?.(item.sessionId));
+    open.dataset.ibxRole = 'primary';
+    actions.appendChild(open);
+    if (typeof api.mountSession === 'function') {
+      const on = terminal?.id === item.id;
+      const t = button('ibx-terminal-toggle', on ? 'Hide terminal' : 'Show terminal here', () => toggleTerminal(item));
+      t.setAttribute('aria-pressed', String(on));
+      t.dataset.ibxRole = 'terminal';
+      actions.appendChild(t);
+    }
+    dismissControls(item, actions);
+    wrap.appendChild(actions);
+    return wrap;
+  }
+
+  function agentOpenActions(item) {
+    const wrap = make('div', 'ibx-d-answer');
+    const busy = sending.has(item.id);
+    const choice = choices.get(item.id) || null;
+    if (item.options.length) {
+      const group = make('div', 'ibx-options');
+      group.setAttribute('role', 'radiogroup');
+      group.setAttribute('aria-label', 'Options');
+      item.options.forEach((opt, i) => {
+        const b = make('button', 'ibx-option');
+        b.type = 'button';
+        b.disabled = busy;
+        b.dataset.ibxRole = `option-${i + 1}`;
+        b.dataset.optionId = opt.id;
+        b.setAttribute('role', 'radio');
+        b.setAttribute('aria-checked', String(choice === opt.id));
+        if (choice === opt.id) b.classList.add('ibx-chosen');
+        b.appendChild(make('span', 'ibx-option-num', String(i + 1)));
+        const text = make('span', 'ibx-option-text');
+        text.appendChild(make('span', 'ibx-option-label', opt.label));
+        if (opt.description) text.appendChild(make('span', 'ibx-option-desc', opt.description));
+        b.appendChild(text);
+        b.addEventListener('click', () => choose(item, opt.id));
+        group.appendChild(b);
+      });
+      wrap.appendChild(group);
+    }
+    if (item.allowFreeText) {
+      const ta = make('textarea', 'ibx-text');
+      ta.rows = 3;
+      ta.maxLength = 4000;
+      ta.disabled = busy;
+      ta.dataset.ibxRole = 'text';
+      ta.placeholder = item.options.length ? 'Add a note (optional)' : 'Your answer';
+      ta.setAttribute('aria-label', item.options.length ? 'Note' : 'Answer');
+      ta.value = drafts.get(item.id) || '';
+      ta.addEventListener('input', () => {
+        drafts.set(item.id, ta.value);
+        const send = detailEl.querySelector('.ibx-send');
+        if (send) send.disabled = busy || !answerPayload(item, { optionId: choices.get(item.id), text: ta.value });
+      });
+      ta.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); e.stopPropagation(); send(item); }
+      });
+      wrap.appendChild(ta);
+    }
+    const actions = make('div', 'ibx-actions');
+    const payload = answerPayload(item, { optionId: choice, text: drafts.get(item.id) || '' });
+    const sendBtn = button('ibx-primary ibx-send', busy ? 'Sending…' : 'Send', () => send(item), { disabled: busy || !payload });
+    sendBtn.dataset.ibxRole = 'send';
+    actions.appendChild(sendBtn);
+    if (item.allowFreeText) actions.appendChild(make('span', 'ibx-hint', '⌘/Ctrl+Enter sends'));
+    dismissControls(item, actions);
+    wrap.appendChild(actions);
+    return wrap;
+  }
+
+  function agentAnsweredActions(item) {
+    const wrap = make('div', 'ibx-d-answered');
+    const a = item.answer || {};
+    const opt = item.options.find((o) => o.id === a.optionId);
+    if (opt) wrap.appendChild(make('p', 'ibx-answer-choice', `You chose: ${opt.label}`));
+    if (a.text) wrap.appendChild(make('p', 'ibx-answer-note', `Note: ${a.text}`));
+    const failed = isFailed(item);
+    const state = item.state === 'resolved' ? resolvedLabel(item)
+      : failed ? `Not delivered${a.deliveryError ? `: ${a.deliveryError}` : ''}` : 'Sending…';
+    wrap.appendChild(make('p', `ibx-delivery${failed ? ' ibx-delivery-failed' : ''}`, state));
+    if (failed) {
+      const actions = make('div', 'ibx-actions');
+      const busy = sending.has(item.id);
+      const retry = button('ibx-primary ibx-retry', busy ? 'Retrying…' : 'Retry', () => retryItem(item), { disabled: busy });
+      retry.dataset.ibxRole = 'primary';
+      actions.appendChild(retry);
+      dismissControls(item, actions);
+      wrap.appendChild(actions);
+    }
+    return wrap;
+  }
+
+  // ── actions ─────────────────────────────────────────────────────────────
+  function markSending(item) {
+    const prev = sending.get(item.id);
+    if (prev) cancel(prev.timer);
+    const timer = schedule(() => { sending.delete(item.id); renderDetail(); }, SEND_TIMEOUT_MS);
+    sending.set(item.id, { stamp: item.updatedAt, state: item.state, timer });
+  }
+
+  function send(item) {
+    if (sending.has(item.id)) return;
+    const payload = answerPayload(item, { optionId: choices.get(item.id), text: drafts.get(item.id) || '' });
+    if (!payload) return;
+    markSending(item);
+    api.send(payload);
+    renderDetail();
+  }
+
+  function retryItem(item) {
+    if (sending.has(item.id)) return;
+    markSending(item);
+    api.send({ type: 'inbox-retry', id: item.id });
+    renderDetail();
+  }
+
+  function dismiss(item) {
+    confirming = null;
+    markSending(item);
+    api.send({ type: 'inbox-dismiss', id: item.id });
+    renderDetail();
+    root.focus({ preventScroll: true });
+  }
+
+  function startDismiss() {
+    const item = selected();
+    if (!item || sending.has(item.id)) return;
+    if (item.source === 'status') { dismiss(item); return; }
+    confirming = item.id;
+    renderDetail();
+    focusRole('confirm-yes');
+  }
+
+  function choose(item, optionId) {
+    choices.set(item.id, optionId);
+    renderDetail();
+    focusRole('send');
+  }
+
+  function toggleTerminal(item) {
+    if (terminal?.id === item.id) closeTerminal();
+    else {
+      closeTerminal();
+      terminalEl.hidden = false;
+      const handle = api.mountSession(terminalEl, item.sessionId);
+      if (handle) terminal = { id: item.id, handle };
+      else terminalEl.hidden = true;
+    }
+    renderDetail();
+  }
+
+  function closeTerminal() {
+    if (!terminal) return;
+    try { terminal.handle.unmount(); } catch { /* the board reports its own */ }
+    terminal = null;
+    terminalEl.hidden = true;
+    terminalEl.replaceChildren();
+  }
+
+  function focusRole(role) {
+    const target = detailEl.querySelector(`[data-ibx-role="${role}"]`);
+    if (target && !target.disabled) target.focus({ preventScroll: true });
+  }
+
+  function primaryControl() {
+    const item = selected();
+    if (!item) return null;
+    const pick = (sel) => detailEl.querySelector(sel);
+    if (item.source === 'status' || isFailed(item)) return pick('[data-ibx-role="primary"]');
+    const chosen = choices.get(item.id);
+    if (chosen) return pick('[data-ibx-role="send"]');
+    return pick('.ibx-option') || pick('[data-ibx-role="text"]') || pick('[data-ibx-role="send"]');
+  }
+
+  function focusPrimary() {
+    const target = primaryControl();
+    if (target && !target.disabled) target.focus({ preventScroll: true });
+    else root.focus({ preventScroll: true });
+  }
+
+  function markRead() {
+    const item = selected();
+    if (!item || !visible() || !isUnread(item) || readSent.has(item.id)) return;
+    readSent.add(item.id);
+    api.send({ type: 'inbox-mark-read', ids: [item.id] });
+  }
+
+  // ── selection ───────────────────────────────────────────────────────────
+  function setSelected(id) {
+    if (id === selectedId) return;
+    if (terminal && terminal.id !== id) closeTerminal();
+    confirming = null;
+    selectedId = id;
+  }
+
+  function select(id, { open = true, focus = false } = {}) {
+    if (!order.some((i) => i.id === id)) {
+      pendingId = id;
+      wantFocus = focus;
+      return false;
+    }
+    pendingId = null;
+    setSelected(id);
+    if (open) detailOpen = true;
+    render();
+    if (focus) {
+      if (visible()) focusPrimary();
+      else wantFocus = true;
+    }
+    return true;
+  }
+
+  function next() {
+    if (!order.length) return;
+    const top = order[0].id;
+    const target = selectedId === top && order.length > 1 ? order[1].id : top;
+    select(target, { open: true, focus: true });
+  }
+
+  function move(delta) {
+    if (!order.length) return;
+    const at = order.findIndex((i) => i.id === selectedId);
+    const to = at < 0 ? (delta > 0 ? 0 : order.length - 1) : Math.max(0, Math.min(order.length - 1, at + delta));
+    setSelected(order[to].id);
+    render();
+    queueEl.querySelector(`.ibx-row[data-id="${CSS_escape(order[to].id)}"]`)?.focus({ preventScroll: false });
+  }
+
+  function chooseByNumber(n) {
+    const item = selected();
+    if (!item || item.source !== 'agent' || item.state !== 'open' || sending.has(item.id)) return false;
+    const opt = item.options[n - 1];
+    if (!opt) return false;
+    detailOpen = true;
+    choose(item, opt.id);
+    return true;
+  }
+
+  // ── events ──────────────────────────────────────────────────────────────
+  queueEl.addEventListener('click', (e) => {
+    const row = e.target.closest('.ibx-row');
+    if (row && !row.classList.contains('ibx-leaving')) select(row.dataset.id, { open: true });
+  });
+  nextBtn.addEventListener('click', () => next());
+  backBtn.addEventListener('click', () => {
+    detailOpen = false;
+    render();
+    queueEl.querySelector('.ibx-row.ibx-selected')?.focus({ preventScroll: true });
+  });
+
+  root.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+    // A handled key stops here, so the board's window-level shortcuts never
+    // see it as well.
+    const consume = () => { e.preventDefault(); e.stopPropagation(); };
+    if (e.key === 'Escape') {
+      if (confirming) { confirming = null; renderDetail(); focusRole('dismiss'); consume(); return; }
+      if (isTyping(e.target)) { root.focus({ preventScroll: true }); consume(); return; }
+      if (detailOpen) { backBtn.click(); consume(); }
+      return;
+    }
+    if (isTyping(e.target)) return;
+    let handled = true;
+    switch (e.key) {
+      case 'n': next(); break;
+      case 'j': case 'ArrowDown': move(1); break;
+      case 'k': case 'ArrowUp': move(-1); break;
+      case 'e': startDismiss(); break;
+      case 'Enter':
+        // A focused button answers Enter itself.
+        if (e.target.closest('button')) { handled = false; break; }
+        if (selected()) { detailOpen = true; render(); focusPrimary(); } else next();
+        break;
+      default:
+        if (/^[1-6]$/.test(e.key)) handled = chooseByNumber(Number(e.key));
+        else handled = false;
+    }
+    if (handled) consume();
+  });
+
+  // The view's host toggles `hidden` as the human switches views. Coming on
+  // screen is when a pending focus lands and the selected item counts as read.
+  const host = el.parentElement;
+  const Observer = doc.defaultView?.MutationObserver;
+  let watcher = null;
+  if (host && Observer) {
+    watcher = new Observer(() => {
+      if (!visible()) return;
+      markRead();
+      if (wantFocus) { wantFocus = false; focusPrimary(); return; }
+      const active = doc.activeElement;
+      if (!active || active === doc.body || active.closest?.('.layouts')) root.focus({ preventScroll: true });
+    });
+    watcher.observe(host, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  // ── render ──────────────────────────────────────────────────────────────
+  function render() {
+    const n = order.length;
+    setText(countEl, n ? `${n} waiting` : '');
+    nextBtn.disabled = n === 0;
+    emptyEl.hidden = n > 0;
+    patchList(queueEl, order, { key: (i) => i.id, create: createRow, update: updateRow, leaveMs, schedule });
+    const recent = recentItems(items);
+    recentEl.hidden = recent.length === 0;
+    setText(recentSummary, `Recently resolved (${recent.length})`);
+    patchList(recentList, recent, { key: (i) => i.id, create: createRecentRow, update: updateRecentRow });
+    renderDetail();
+    markRead();
+  }
+
+  function update(nextGraph) {
+    graph = nextGraph;
+    items = inboxOf(graph)?.items ?? [];
+    const hadFocus = root.contains(doc.activeElement);
+    order = queueOrder(items);
+    for (const [id, s] of [...sending]) {
+      const item = byId(id);
+      if (!item || item.updatedAt !== s.stamp || item.state !== s.state) { cancel(s.timer); sending.delete(id); }
+    }
+    let advanced = false;
+    if (selectedId && !order.some((i) => i.id === selectedId)) {
+      setSelected(nextAfter(prevOrderIds, selectedId, order));
+      advanced = true;
+      if (!selectedId) detailOpen = false;
+    }
+    if (pendingId && order.some((i) => i.id === pendingId)) {
+      const focus = wantFocus;
+      wantFocus = false;
+      prevOrderIds = order.map((i) => i.id);
+      select(pendingId, { open: true, focus });
+      return;
+    }
+    prevOrderIds = order.map((i) => i.id);
+    render();
+    if (advanced && hadFocus && visible()) focusPrimary();
+  }
+
+  function unmount() {
+    watcher?.disconnect();
+    for (const s of sending.values()) cancel(s.timer);
+    sending.clear();
+    closeTerminal();
+    root.remove();
+  }
+
+  return { update, select, next, unmount, get selectedId() { return selectedId; } };
+}
+
+// CSS.escape where the platform has it; item ids are `ibx_<hex>`, so the
+// fallback only needs to quote what a selector string could trip on.
+function CSS_escape(s) {
+  const g = globalThis.CSS;
+  return g?.escape ? g.escape(s) : String(s).replace(/["\\]/g, '\\$&');
+}
