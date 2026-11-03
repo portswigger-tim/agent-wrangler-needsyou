@@ -191,14 +191,14 @@ try {
   if (expect(await workerCard.count() > 0, "the worker's card is on the board")) {
     await workerCard.click({ button: 'right' });
     await page.waitForTimeout(400);
-    await shot(page, 'card-menu-worker', { note: "the worker's card menu: the can-ask action" });
-    const allow = page.getByText('Allow asking the human directly').first();
-    if (expect(await allow.count() > 0, 'the card menu offers "Allow asking the human directly"')) {
+    await shot(page, 'card-menu-worker', { note: "the worker's card menu: one can-ask item, 'Let it ask you directly · asks its orchestrator'" });
+    const allow = page.getByText('Let it ask you directly').first();
+    if (expect(await allow.count() > 0, 'the card menu offers "Let it ask you directly"')) {
       await allow.click();
       await page.waitForTimeout(800);
       await workerCard.click({ button: 'right' });
       await page.waitForTimeout(400);
-      await shot(page, 'card-menu-worker-allowed', { note: 'after allowing: route back / use default' });
+      await shot(page, 'card-menu-worker-allowed', { note: "after allowing: one item, 'Send its questions to the orchestrator · asks you directly'" });
       await page.keyboard.press('Escape');
     }
   }
