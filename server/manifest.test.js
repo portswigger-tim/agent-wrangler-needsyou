@@ -18,17 +18,16 @@ test('package.json wranglerExtension and the manifest agree on id, requires and 
   assert.equal(declared.description, manifest.description);
 });
 
-test('the manifest declares the five contracted settings and no defaults', () => {
+test('the manifest declares the four contracted settings and no defaults', () => {
   assert.deepEqual(SETTINGS.map((s) => [s.key, s.type]), [
-    ['notifyToasts', 'toggle'],
     ['includeTransientApiErrors', 'toggle'],
     ['maxOpenPerSession', 'number'],
     ['retentionDays', 'number'],
     ['autoResolveOnWorking', 'toggle'],
   ]);
   assert.ok(SETTINGS.every((s) => !('default' in s)));
-  assert.deepEqual([SETTINGS[2].min, SETTINGS[2].max], [1, 20]);
-  assert.deepEqual([SETTINGS[3].min, SETTINGS[3].max], [1, 90]);
+  assert.deepEqual([SETTINGS[1].min, SETTINGS[1].max], [1, 20]);
+  assert.deepEqual([SETTINGS[2].min, SETTINGS[2].max], [1, 90]);
 });
 
 test('every declared asset and skill exists, and runtime deps are zod only', () => {

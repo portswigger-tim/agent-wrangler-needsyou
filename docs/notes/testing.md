@@ -15,7 +15,7 @@ This page has two parts:
 | Check | What it proves |
 | --- | --- |
 | `npm test` | The server and browser code, with a fake Agent Wrangler (187 tests at 0.1.0) |
-| `scripts/validate-manifest.mjs` | Agent Wrangler's real loader accepts the extension and does not quarantine it (block it from loading). It registers the 3 tools, the 6 message handlers, the `inbox` skill, the 5 settings, the 3 sweeps (timed jobs) and the client files. The tools work through Agent Wrangler's real MCP server: the tool list, one valid call, one invalid call and a refused helper session |
+| `scripts/validate-manifest.mjs` | Agent Wrangler's real loader accepts the extension and does not quarantine it (block it from loading). It registers the 3 tools, the 6 message handlers, the `inbox` skill, the 4 settings, the 3 sweeps (timed jobs) and the client files. The tools work through Agent Wrangler's real MCP server: the tool list, one valid call, one invalid call and a refused helper session |
 | `scripts/boot-smoke.sh` | A real, temporary Agent Wrangler loads the extension. `scripts/dev-smoke.mjs` then tests every flow over the board's connection and `/mcp`, as a browser tab and an agent would |
 
 `dev-smoke.mjs` checks these flows:
@@ -95,7 +95,7 @@ The dialog shows exactly 4 capabilities: `sessions:read`, `tasks:read`,
 11. If Agent Wrangler asks you to restart it, restart it.
 12. Open **Settings → Extensions → Needs you**.
 
-"Needs you" is enabled and has 5 settings. The **Needs you** button shows on
+"Needs you" is enabled and has 4 settings. The **Needs you** button shows on
 the left rail.
 
 Keep this Agent Wrangler running for the next checks.
@@ -145,7 +145,7 @@ The blocked item for session A closes.
 
 12. If session C asked you a question, answer it in **Needs you**.
 
-The badge shows 0. All the "Needs you" notifications go away.
+The badge shows 0.
 
 ### Check 3: Two tabs give one item
 
@@ -153,8 +153,8 @@ The badge shows 0. All the "Needs you" notifications go away.
 2. Start a session that stops on a permission prompt (as in check 2, step 1).
 3. Wait 10 seconds.
 
-The list shows one blocked item for that session, not two. Only one
-notification shows.
+The list shows one blocked item for that session, not two. The badge
+counts it once.
 
 4. Approve the permission prompt in the terminal.
 

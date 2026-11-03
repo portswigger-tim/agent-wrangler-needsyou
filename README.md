@@ -40,7 +40,7 @@ Then install the extension:
 
 The **Needs you** button shows on the left rail. It has a badge that counts
 the items that need you. **Needs you** also shows in **Settings → Extensions**,
-with five settings.
+with four settings.
 
 The extension asks for these capabilities:
 
@@ -117,7 +117,6 @@ Your answer arrives in the agent's prompt as a message that starts with
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| Notify when a session is stopped | On | Shows a notification when a new item stops a session. The notification goes away when you read the item or it closes |
 | Include API errors | Off | Adds an item when a session waits on an API error that it will retry |
 | Open requests per session | 5 | The number of unanswered requests one session can have at the same time (1 to 20) |
 | Keep resolved items (days) | 7 | The number of days to keep closed items (1 to 90) |

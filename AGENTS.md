@@ -182,7 +182,7 @@ pre-commit install          # installs the pre-commit, pre-merge-commit and pre-
   `<AW_DATA_DIR>/extensions/needsyou` of a dev wrangler (`AW_DEV=1`) and restart it. **Never
   symlink:** discovery keeps only real directories, so a symlink is silently never loaded. A
   hand-placed copy loads with no provenance record and no consent prompt. Check Settings →
-  Extensions for "Needs you" (enabled, five settings), and check that `graph.inbox` is present.
+  Extensions for "Needs you" (enabled, four settings), and check that `graph.inbox` is present.
 
 ## Design notes
 
@@ -193,8 +193,8 @@ The non-obvious decisions from each workstream, and the test procedures, are in
 - [`agent-requests.md`](docs/notes/agent-requests.md): the MCP tools, answer
   delivery, who may ask (WS-2)
 - [`passive-signals.md`](docs/notes/passive-signals.md): the observer and
-  reconcile, and the open `AskUserQuestion` question (WS-3)
-- [`ui.md`](docs/notes/ui.md): the view, toasts, keyboard, known UI limits (WS-4)
+  reconcile, and the confirmed `AskUserQuestion` coverage (WS-3)
+- [`ui.md`](docs/notes/ui.md): the view, keyboard, known UI limits (WS-4)
 - [`lifecycle.md`](docs/notes/lifecycle.md): archive and purge hooks, expiry
   and retention sweeps (WS-5)
 - [`testing.md`](docs/notes/testing.md): what validate-manifest and the boot

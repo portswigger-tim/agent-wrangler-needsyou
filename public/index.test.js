@@ -19,7 +19,11 @@ function loadClient() {
     send: (f) => sent.push(f),
     openSession() {},
     settings: () => ({}),
-    ui: { markdownPreview: (md) => md, notify: () => new Promise(() => {}), withdraw() {} },
+    ui: {
+      markdownPreview: (md) => md,
+      notify() { throw new Error('no toasts (F14)'); },
+      withdraw() { throw new Error('no toasts (F14)'); },
+    },
   };
   let observerStarted = 0;
   const client = createClient({
@@ -64,6 +68,13 @@ test('the badge is graph.inbox.open', () => {
   assert.equal(c.contributions.view.badge(g), 3);
   assert.equal(c.contributions.view.badge(graphOf([])), 0);
   assert.equal(c.contributions.view.badge({}), 0);
+});
+
+test('no toasts: new blocked and blocking items never call api.ui.notify', () => {
+  const c = loadClient();
+  c.contributions.view.update(c.viewEl, null, graphOf([]));
+  c.contributions.view.update(c.viewEl, null, graphOf([statusItem(), item({ blocking: true, urgency: 'high' })]));
+  c.contributions.view.update(c.viewEl, null, graphOf([]));
 });
 
 test('each graph reaches the observer once, however many hosts update with it', () => {
