@@ -156,11 +156,19 @@ code that you trust, and check each update before you approve it.
 
 ## Develop the extension
 
+You need Node 22 or later and [pre-commit](https://pre-commit.com/).
+
 1. Run `npm ci --ignore-scripts` in an agent-wrangler checkout.
 2. Run `npm ci` in this repository.
-3. Run `npm test`. You need Node 21 or later.
-4. Run `AW_REPO=<agent-wrangler checkout> node scripts/validate-manifest.mjs`.
-5. Run `AW_REPO=<agent-wrangler checkout> scripts/boot-smoke.sh`.
+3. Run `pre-commit install`. This installs the verification gate.
+4. Run `npm test`.
+5. Run `AW_REPO=<agent-wrangler checkout> node scripts/validate-manifest.mjs`.
+6. Run `AW_REPO=<agent-wrangler checkout> scripts/boot-smoke.sh`.
+
+The verification gate runs when you commit, merge and push. It checks for
+secrets, local file paths, a stale lockfile, lint errors and failing tests.
+GitHub runs the same checks on every push. If a check fails, fix the cause.
+Do not use `--no-verify`.
 
 What each check does:
 
