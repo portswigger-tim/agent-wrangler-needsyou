@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.1.4 (unreleased)
+## 0.1.5 (unreleased)
+
+### Changed
+
+- **All shows a count**, like Open and Closed: "All (12)" is open plus closed.
+
+## 0.1.4
 
 From the human's last round of ideas (`docs/specs/fixes-0.1.4.md`).
 

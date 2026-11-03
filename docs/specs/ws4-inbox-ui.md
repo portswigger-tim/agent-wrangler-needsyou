@@ -44,7 +44,7 @@ The badge counts **open items** (contracts §4 `open`), not unread ones, and is 
 
 *List pane*, top to bottom:
 1. Header "Needs you" and the count "N open" (0.1.4; was "N waiting"), and the filters
-   **Open (n) · Closed (n) · All** (0.1.4). The `n` key selects the top item and focuses
+   **Open (n) · Closed (n) · All (n)** (0.1.4). The `n` key selects the top item and focuses
    its primary control. After an answer or dismiss the view moves on to the next item. (0.1.3: the
    **Next** button that also did this was removed at the human's request; the key stays.)
 2. **The queue**, ordered by cost of waiting. `queueOrder(items)` is a pure, exported and tested

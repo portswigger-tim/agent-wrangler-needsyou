@@ -29,7 +29,7 @@ new item, and no X at one pane. e2e: a shot of the closed state.
 **Problem:** the closed items hide in a small collapsible strip under the queue.
 **Change:**
 - Replace the `<details>` strip with a segmented control in the list header:
-  **Open (n)** · **Closed (n)** · **All**. Buttons with `aria-pressed`, in a group with
+  **Open (n)** · **Closed (n)** · **All (n)**. Buttons with `aria-pressed`, in a group with
   `role="group"` and `aria-label="Show"`. It opens on **Open**.
 - **Open:** the queue, in `queueOrder` (unchanged), including failed deliveries.
 - **Closed:** resolved items, and answers still on their way ("sending"), sorted by **when they

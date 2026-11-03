@@ -138,7 +138,7 @@ test('the filter buttons: a "Show" group, aria-pressed, counts, and each empty s
   const pressed = () => [...v.el.querySelectorAll('.ibx-filter')].map((b) => b.getAttribute('aria-pressed'));
   const labels = () => [...v.el.querySelectorAll('.ibx-filter')].map((b) => text(b));
   assert.deepEqual(pressed(), ['true', 'false', 'false'], 'it opens on Open');
-  assert.deepEqual(labels(), ['Open (0)', 'Closed (0)', 'All']);
+  assert.deepEqual(labels(), ['Open (0)', 'Closed (0)', 'All (0)']);
   assert.equal(text(v.q('.ibx-empty')), 'Nothing needs you right now.');
   v.filter('closed').click();
   assert.deepEqual(pressed(), ['false', 'true', 'false']);
@@ -153,7 +153,7 @@ test('the filter buttons: a "Show" group, aria-pressed, counts, and each empty s
   const old = item({ state: 'resolved', resolvedReason: 'expired', updatedAt: 10 * MIN, title: 'old' });
   const fresh = item({ state: 'resolved', resolvedReason: 'dismissed', updatedAt: 15 * MIN, title: 'fresh' });
   v.view.update(graphOf([old, fail, fresh, open]));
-  assert.deepEqual(labels(), ['Open (2)', 'Closed (2)', 'All']);
+  assert.deepEqual(labels(), ['Open (2)', 'Closed (2)', 'All (4)']);
   assert.deepEqual(v.rows().map((r) => text(r.querySelector('.ibx-row-title'))), ['open', 'failed', 'fresh', 'old'],
     'All: the Open list, then the Closed list');
   assert.deepEqual(v.rows().map((r) => r.classList.contains('ibx-closed-row')), [false, false, true, true]);

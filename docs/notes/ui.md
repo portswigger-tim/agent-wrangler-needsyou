@@ -106,7 +106,7 @@ control router (a refused answer, for example) are the board's own and stay.
 
 ## Filters and the read-only view
 
-- **Open (n) · Closed (n) · All** (0.1.4, C2) replaced the "Recently resolved"
+- **Open (n) · Closed (n) · All (n)** (0.1.4, C2) replaced the "Recently resolved"
   strip. One listbox (`.ibx-queue`) shows the chosen list, and its aria-label
   follows the filter. The choice is kept in `localStorage` (`needsyou.filter`),
   inside try/catch, and an unknown value falls back to Open.

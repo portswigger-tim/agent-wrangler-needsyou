@@ -738,10 +738,11 @@ export function createInboxView(el, api, {
     autoPick();
     setText(countEl, n ? `${n} open` : '');
     countEl.hidden = n === 0;
-    const counts = { open: n, closed: closed.length };
+    const counts = { open: n, closed: closed.length, all: n + closed.length };
+    const names = { open: 'Open', closed: 'Closed', all: 'All' };
     for (const b of filterBtns) {
       const f = b.dataset.filter;
-      setText(b, f === 'all' ? 'All' : `${f === 'open' ? 'Open' : 'Closed'} (${counts[f]})`);
+      setText(b, `${names[f]} (${counts[f]})`);
       setAttr(b, 'aria-pressed', String(f === filter));
     }
     const list = shown();
