@@ -34,11 +34,14 @@ ticket keys, chat channels, colleague names, credentials. Keep examples generic
   `host` façade it is handed. Its keys are exactly what `requires` grants (`sessions:read`,
   `tasks:read`, `deliver`, `board:rebuild`) plus the always-present `id`, `version`, `stores`,
   `settings`, `log`. There is no `host.broadcast`: the client reads the graph.
-- **No own file may have an import line matching `from '../index.js'`, or a path ending
-  `/session-manager.js`, `/state-reader.js`, `/tmux-scraper.js`, or containing `/host-api/`.** The
-  wrangler's import scanner (`server/extensions/external.js` `FORBIDDEN_IMPORTS`) quarantines the
-  whole extension on a match. That is why the manifest lives in `server/manifest.js` and the root
-  `index.js` only re-exports it: tests import `./manifest.js`, never the root.
+- **No own file may have a static `import` line matching `from '../../index.js'` (two or more
+  `../` levels; a single `../index.js` is not matched), or a path ending `/session-manager.js`,
+  `/state-reader.js`, `/tmux-scraper.js`, or containing `/host-api/`.** The wrangler's import
+  scanner (`server/extensions/external.js` `FORBIDDEN_IMPORTS`, checked on main 2026-11-03)
+  quarantines the whole extension on a match. It skips `*.test.js`/`*.spec.js` files, directories
+  named `test`, `tests`, `__tests__`, `spec` or `__mocks__`, `node_modules`, and the root `skills/`.
+  Even so, keep the manifest in `server/manifest.js` with the root `index.js` only re-exporting it,
+  and have tests import `./manifest.js`, never the root: the scanner's rule can change.
 - **`host.sessions.*` has no `status`, `waitingFor` or `waitingReason`.** Only the browser's graph
   does, so status detection runs client-side (`public/observer.js` → `inbox-observe`).
 - **`host.deliver(sessionId, text)` resolves to `{ mode: 'live' | 'dormant' }` on success and

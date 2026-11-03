@@ -50,7 +50,8 @@ test('the store factory reads maxOpenPerSession through the bag settings view', 
 });
 
 // The wrangler's leaf-import scanner (agent-wrangler server/extensions/external.js
-// FORBIDDEN_IMPORTS) quarantines the whole extension on one of these.
+// FORBIDDEN_IMPORTS) quarantines the whole extension on one of these. Stricter
+// on purpose: any `../index.js`, where the wrangler matches two or more levels.
 test('no own file imports the root index.js, agent-wrangler or a forbidden core module', () => {
   const bad = [/from\s+['"](\.\.\/)+index\.js['"]/, /\/(session-manager|state-reader|tmux-scraper)\.js['"]/, /\/host-api\//, /agent-wrangler/];
   const files = [];
