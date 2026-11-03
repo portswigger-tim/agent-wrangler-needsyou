@@ -56,3 +56,46 @@ jobs:
       - run: node scripts/validate-manifest.mjs
 
       - run: npm test
+
+  # Boots agent-wrangler main with this checkout copied in as
+  # extensions/needsyou, on a throwaway data dir and port, and drives it over
+  # the control WS and /mcp as a board tab and an agent would. No session is
+  # started and nothing is delivered to a live card. Fails on a quarantine, a
+  # missing frame or tool, or any flow that does not land in graph.inbox.
+  boot-smoke:
+    runs-on: ubuntu-latest
+    env:
+      AW_REPO: ${{ github.workspace }}/agent-wrangler
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: needsyou
+          persist-credentials: false
+
+      # Public repo over https: no token or secret is needed or passed.
+      - uses: actions/checkout@v4
+        with:
+          repository: PortSwigger/agent-wrangler
+          ref: main
+          path: agent-wrangler
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            needsyou/package-lock.json
+            agent-wrangler/package-lock.json
+
+      # The copy boot-smoke installs needs this checkout's node_modules (zod).
+      - run: npm ci --omit=dev --ignore-scripts
+
+      # No install scripts: the smoke boot opens no terminal, and node-pty
+      # ships a linux-x64 prebuild for the import.
+      - run: npm ci --ignore-scripts
+        working-directory: agent-wrangler
+
+      - run: sudo apt-get update && sudo apt-get install -y tmux
+
+      - run: scripts/boot-smoke.sh

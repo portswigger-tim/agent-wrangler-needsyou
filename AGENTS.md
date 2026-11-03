@@ -153,3 +153,26 @@ the contracted names, so `server/manifest.js` never has to change.
   symlink:** discovery keeps only real directories, so a symlink is silently never loaded. A
   hand-placed copy loads with no provenance record and no consent prompt. Check Settings →
   Extensions for "Needs you" (enabled, five settings), and check that `graph.inbox` is present.
+
+## Design notes
+
+The non-obvious decisions from each workstream, and the test procedures, are in
+`docs/notes/`. Read the note for an area before changing it.
+
+- [`foundation.md`](docs/notes/foundation.md): manifest, store, graph (WS-1)
+- [`agent-requests.md`](docs/notes/agent-requests.md): the MCP tools, answer
+  delivery, who may ask (WS-2)
+- [`passive-signals.md`](docs/notes/passive-signals.md): the observer and
+  reconcile, and the open `AskUserQuestion` question (WS-3)
+- [`ui.md`](docs/notes/ui.md): the view, toasts, keyboard, known UI limits (WS-4)
+- [`lifecycle.md`](docs/notes/lifecycle.md): archive and purge hooks, expiry
+  and retention sweeps (WS-5)
+- [`testing.md`](docs/notes/testing.md): what validate-manifest and the boot
+  smoke cover, how to run them, and the manual checklist and compliance eval
+  (WS-6)
+
+`scripts/boot-smoke.sh` boots a throwaway wrangler (temp data dir, temp `HOME`,
+free port, `AW_DEV=1`) with this checkout copied in, and `scripts/dev-smoke.mjs`
+drives it. It needs `npm ci` here first (the copy needs `node_modules`). Its
+fixture cards have no process, and it delivers only to an archived card,
+because `host.deliver` to a dormant card wakes it and launches a billed agent.
