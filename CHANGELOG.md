@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.7
+
+### Changed
+
+- **A blocked session opens on its Terminal.** For an item that waits on the
+  terminal (a permission prompt, a trust dialog, a sign-in), **Open session**,
+  the session link and **Show terminal here** now open the Terminal tab, not
+  Chat. The session keeps that tab afterwards.
+
 ## 0.1.6
 
 ### Changed

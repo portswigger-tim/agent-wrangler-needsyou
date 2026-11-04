@@ -15,6 +15,7 @@
 //   focus and a half-typed answer survive a tick.
 import { ICONS, kindIcon } from './icons.js';
 import { patchList, setText, setAttr, setClass } from './inbox-dom.js';
+import { preferTerminal, wantsTerminal } from './inbox-session-view.js';
 import {
   queueOrder, closedOrder, closedAt, closedLabel, FILTERS, itemLabel, itemIconKey, isAlarm, isUrgent, guidanceFor,
   terminalText, resolvedLabel, waitingLabel, ageLabel, sessionMeta, sessionName, spawnedByLabel, inboxOf, isUnread,
@@ -291,7 +292,7 @@ export function createInboxView(el, api, {
     head.appendChild(kinds);
     head.appendChild(make('h3', 'ibx-d-title', item.title));
     const meta = make('div', 'ibx-d-meta');
-    const sessionBtn = button('ibx-link ibx-d-session', sessionName(graph, item.sessionId), () => api.openSession?.(item.sessionId), { title: 'Open session' });
+    const sessionBtn = button('ibx-link ibx-d-session', sessionName(graph, item.sessionId), () => openSession(item), { title: 'Open session' });
     meta.appendChild(sessionBtn);
     const task = inboxOf(graph)?.sessions?.[item.sessionId]?.taskName;
     if (task) meta.appendChild(make('span', 'ibx-d-task', task));
@@ -325,7 +326,7 @@ export function createInboxView(el, api, {
   function statusActions(item) {
     const wrap = make('div', 'ibx-d-status');
     const actions = make('div', 'ibx-actions');
-    const open = button('ibx-primary ibx-open-session', 'Open session', () => api.openSession?.(item.sessionId));
+    const open = button('ibx-primary ibx-open-session', 'Open session', () => openSession(item));
     open.dataset.ibxRole = 'primary';
     actions.appendChild(open);
     if (typeof api.mountSession === 'function') {
@@ -524,11 +525,18 @@ export function createInboxView(el, api, {
     focusRole('send');
   }
 
+  // A blocked session opens on its Terminal, where the prompt is.
+  function openSession(item) {
+    if (wantsTerminal(item)) preferTerminal(item.sessionId, storage);
+    api.openSession?.(item.sessionId);
+  }
+
   function toggleTerminal(item) {
     if (terminal?.id === item.id) closeTerminal();
     else {
       closeTerminal();
       terminalEl.hidden = false;
+      preferTerminal(item.sessionId, storage);
       const handle = api.mountSession(terminalEl, item.sessionId);
       if (handle) terminal = { id: item.id, handle };
       else terminalEl.hidden = true;

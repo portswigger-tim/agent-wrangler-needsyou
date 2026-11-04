@@ -322,6 +322,7 @@ test('a status item detail: guidance, the terminal text once, Open session, term
   assert.equal(v.q('.ibx-d-waiting'), null);
   v.q('.ibx-open-session').click();
   assert.deepEqual(v.opened, ['s1']);
+  assert.deepEqual(JSON.parse(v.window.localStorage.getItem('cm-session-view')), { s1: 'terminal' }, 'a blocked session opens on its Terminal');
   v.q('.ibx-terminal-toggle').click();
   assert.equal(v.mounts.length, 1);
   assert.equal(v.mounts[0].target, v.q('.ibx-terminal'));
@@ -852,4 +853,27 @@ test('a non-blocking request says the agent is still working', () => {
   assert.equal(text(v.q('.ibx-d-working')), 'The agent is still working.');
   v.view.select(b.id);
   assert.equal(v.q('.ibx-d-working'), null);
+});
+
+test('an agent request opens its session on the remembered tab, not the Terminal', () => {
+  const v = mountView();
+  const a = item();
+  v.view.update(graphOf([a]));
+  v.view.select(a.id);
+  v.q('.ibx-d-session').click();
+  assert.equal(v.opened.length, 1);
+  assert.equal(v.window.localStorage.getItem('cm-session-view'), null);
+});
+
+test('the session link of a blocked item and Show terminal here both ask for the Terminal', () => {
+  const v = mountView();
+  const s = statusItem();
+  v.view.update(graphOf([s]));
+  v.view.select(s.id);
+  v.window.localStorage.setItem('cm-session-view', JSON.stringify({ other: 'chat' }));
+  v.q('.ibx-terminal-toggle').click();
+  assert.deepEqual(JSON.parse(v.window.localStorage.getItem('cm-session-view')), { other: 'chat', [s.sessionId]: 'terminal' });
+  v.window.localStorage.removeItem('cm-session-view');
+  v.q('.ibx-d-session').click();
+  assert.deepEqual(JSON.parse(v.window.localStorage.getItem('cm-session-view')), { [s.sessionId]: 'terminal' });
 });

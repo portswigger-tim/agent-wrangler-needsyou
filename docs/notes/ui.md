@@ -53,6 +53,15 @@ The non-obvious decisions behind `public/index.js`, `public/inbox-*.js`,
   markdown-escaped by reconcile, so it goes through `api.ui.markdownPreview`.
   `white-space: pre-wrap` sits on the paragraph, not the box, or the newline
   after `</p>` shows as a blank line.
+- An open status item opens its session on the **Terminal** tab (0.1.7):
+  **Open session**, the session link and **Show terminal here** all do. The
+  host API can't choose a tab (`openSession` takes an id, `mountSession` only
+  `view: 'diff'`), so `public/inbox-session-view.js` first writes the board's
+  own per-session choice, `localStorage['cm-session-view'][sid] = 'terminal'`.
+  That key is core's, not a contract: if it changes, the session opens on its
+  remembered tab, as before. The choice stays after the prompt is answered.
+  Replace this with a `view: 'terminal'` option once the host API has one.
+  Agent requests and closed items open on the remembered tab.
 
 ## Answering
 
