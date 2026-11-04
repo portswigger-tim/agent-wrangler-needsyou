@@ -18,3 +18,10 @@ test('the nudge and the skill tell spawners their workers\' questions come to th
   assert.match(skill, /## If you launch sessions/);
   assert.match(skill, /Never tell the human that a worker will ask them directly/);
 });
+
+test('the nudge and the skill send questions about another session\'s request back to it', () => {
+  assert.match(read('skills/inbox/WRANGLER.md'), /another session asked it: don't research it yourself/);
+  const skill = read('skills/inbox/SKILL.md');
+  assert.match(skill, /## When the human asks about a request/);
+  assert.match(skill, /\*\*It is not yours:\*\*/);
+});

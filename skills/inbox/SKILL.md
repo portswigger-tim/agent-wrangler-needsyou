@@ -120,6 +120,21 @@ If the human answers in your terminal or chat instead, call
 a question that is already settled. Do the same when the question goes away on
 its own.
 
+## When the human asks about a request
+
+The human may ask you to explain a request, or ask a question about it. First
+call `list_my_human_requests()`.
+
+- **It is yours:** explain it in chat. If the explanation changes the question,
+  call `request_human_input` again with the same `dedupe_key`, so the queue
+  shows the new version.
+- **It is not yours:** another session asked it, and that session has the
+  context. Do not research it or answer it yourself: doing so fills your
+  context with work that is not yours, and your answer can disagree with the
+  session that asked. Tell the human that another session asked it, and that
+  the session name at the top of the item opens the session that asked. Help
+  only if they still want you to after that.
+
 ## After a restart or compaction
 
 Call `list_my_human_requests()`. It returns your open and answered requests and

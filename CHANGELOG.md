@@ -1,6 +1,16 @@
 # Changelog
 
-## 0.1.5 (unreleased)
+## 0.1.6
+
+### Changed
+
+- **Questions go to the session that asked.** When you ask a session about a
+  "Needs you" request it did not raise, the nudge and the `inbox` skill tell it
+  not to research it, and to point you to the session that asked. This keeps
+  one session's work out of another's context. A request that is its own, it
+  explains in chat, and it updates the request if the question changes.
+
+## 0.1.5
 
 ### Changed
 
