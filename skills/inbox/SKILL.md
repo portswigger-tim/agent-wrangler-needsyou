@@ -23,7 +23,9 @@ are running in):
 Every request goes in **both** places. The queue is how the human sees it on
 the board. Your reply is where they see it if they are chatting with you right
 now. In your reply, write the question, the options and your recommendation,
-in the same words as the request. If the human answers in chat, call
+in the same words as the request. Don't say that you put it in their "Needs
+you" queue, or that they can answer there: the board already shows them, and
+the line is noise. If the human answers in chat, call
 `withdraw_human_request({ id })` straight away and carry on with their answer.
 
 ## When to use it

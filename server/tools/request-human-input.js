@@ -22,7 +22,7 @@ export const DESCRIPTION =
   + '2-4 options where there is a choice. If you are about to end your turn by asking the human to '
   + 'choose (next steps, "should I proceed?"), call this, and also write the question, its options '
   + 'and your recommendation in your reply: the human may be chatting with you and should not have '
-  + 'to switch to the queue. If they answer in chat, call withdraw_human_request. Asking again with the same dedupe_key updates your earlier request instead of adding one. '
+  + 'to switch to the queue. Don\'t tell them it is in their "Needs you" queue: the board shows them. If they answer in chat, call withdraw_human_request. Asking again with the same dedupe_key updates your earlier request instead of adding one. '
   + 'If blocking (the default), end your turn right after the call: the answer arrives as a message '
   + 'starting "[Needs you]". It acts for the session you are running in; there is no session '
   + 'parameter. A session launched by another session is refused: then call send_message to that '
@@ -49,7 +49,7 @@ export const inputSchema = {
 
 // Said on every success, because the agent reads it at the moment of asking:
 // the human may be chatting with it, so the question belongs in chat as well.
-const ALSO_IN_CHAT = 'Also write the question, its options and your recommendation in your reply, so the human sees it in chat too. If they answer in chat, call withdraw_human_request with this id.';
+const ALSO_IN_CHAT = 'Also write the question, its options and your recommendation in your reply, so the human sees it in chat too. Don\'t tell them it is in their "Needs you" queue: the board shows them. If they answer in chat, call withdraw_human_request with this id.';
 
 function nextStep(blocking) {
   return blocking

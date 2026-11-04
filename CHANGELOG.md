@@ -9,6 +9,9 @@
   not to research it, and to point you to the session that asked. This keeps
   one session's work out of another's context. A request that is its own, it
   explains in chat, and it updates the request if the question changes.
+- **No "it's in your Needs you queue" lines.** The tool's reply, its
+  description, the nudge and the skill tell agents to ask in chat without
+  saying the request is also in the queue.
 
 ## 0.1.5
 

@@ -25,3 +25,8 @@ test('the nudge and the skill send questions about another session\'s request ba
   assert.match(skill, /## When the human asks about a request/);
   assert.match(skill, /\*\*It is not yours:\*\*/);
 });
+
+test('the nudge and the skill say not to announce the queue', () => {
+  assert.match(read('skills/inbox/WRANGLER.md'), /don't tell them it is in their "Needs you" queue/);
+  assert.match(read('skills/inbox/SKILL.md'), /Don't say that you put it in their "Needs\nyou" queue/);
+});
