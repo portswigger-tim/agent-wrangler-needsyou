@@ -27,7 +27,7 @@ export const DESCRIPTION =
   + 'starting "[Needs you]". It acts for the session you are running in; there is no session '
   + 'parameter. A session launched by another session is refused: then call send_message to that '
   + 'session with your question instead, and never retry this tool or ask the human in chat. '
-  + 'See the `inbox` skill.';
+  + 'See the `needs-you` skill.';
 
 const optionSchema = z.object({
   id: z.string().max(32).optional().describe('A short lowercase slug (a-z, 0-9, -). Derived from the label when omitted.'),

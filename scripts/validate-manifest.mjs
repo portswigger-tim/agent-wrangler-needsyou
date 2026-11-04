@@ -109,8 +109,8 @@ for (const [what, names] of Object.entries(want)) {
   if (same(got[what], names)) ok(`${what}: ${names.join(', ')}`);
   else fail(`${what} are [${got[what].join(', ')}], expected [${names.join(', ')}]`);
 }
-if (same(entry?.skills ?? [], ['inbox']) && fs.existsSync(path.join(root, 'skills/inbox/SKILL.md'))) ok('skill inbox (skills/inbox/SKILL.md)');
-else fail(`skills are [${entry?.skills}], expected [inbox] with skills/inbox/SKILL.md`);
+if (same(entry?.skills ?? [], ['needs-you']) && fs.existsSync(path.join(root, 'skills/needs-you/SKILL.md'))) ok('skill needs-you (skills/needs-you/SKILL.md)');
+else fail(`skills are [${entry?.skills}], expected [needs-you] with skills/needs-you/SKILL.md`);
 const client = loaded.clientManifest.find((c) => c.id === manifest.id) ?? loaded.clientManifest[0];
 const assets = [[client?.client, manifest.client], [client?.styles, manifest.styles]];
 for (const [served, rel] of assets) {

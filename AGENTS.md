@@ -19,9 +19,10 @@ ticket keys, chat channels, colleague names, credentials. Keep examples generic
   `npm ci --ignore-scripts` and imports `index.js`. **The manifest `id` (`needsyou`) must equal
   that directory name.**
 - Only the id (and what must equal it: the directory, `/ext/needsyou/` assets,
-  `#view=ext:needsyou:…` routes, `ext:needsyou` frame types) is `needsyou`. Internal names keep
+  `#view=ext:needsyou:…` routes, `ext:needsyou` frame types) is `needsyou`. The skill is
+  `needs-you` (`skills/needs-you/`), the name agents and the human see. Internal names keep
   `inbox` on purpose: `host.stores.inbox`, `inbox.json`, `graph.inbox`, the `inbox-*` message
-  types, the `inbox` skill, the `ibx-` CSS prefix and the file names.
+  types, the `ibx-` CSS prefix and the file names.
 - `package.json`'s `wranglerExtension` block is what the human consents to before any code runs,
   so it duplicates `server/manifest.js` by design. `id`, `requires` and `engines` must agree
   exactly (`server/manifest.test.js` and `scripts/validate-manifest.mjs` both check).
@@ -123,7 +124,7 @@ anything else, including a contract change, message the orchestrator.
 | WS | Owns |
 | --- | --- |
 | WS-1 Foundation & store | package.json, package-lock.json, index.js, .gitignore, LICENSE, AGENTS.md, CLAUDE.md, test-setup.js, server/manifest.js, server/item.js, server/store.js, server/data-dir.js, server/atomic-json.js, server/graph.js, server/handlers/index.js, server/handlers/read.js, server/test-helpers.js (+ their tests) |
-| WS-2 Agent requests | server/tools/**, server/answer.js, server/can-ask.js, server/handlers/answer.js, skills/inbox/** |
+| WS-2 Agent requests | server/tools/**, server/answer.js, server/can-ask.js, server/handlers/answer.js, skills/needs-you/** |
 | WS-3 Passive signals | public/observer.js, server/reconcile.js, server/handlers/observe.js |
 | WS-4 "Needs you" UI | public/index.js, public/inbox-*.js, public/icons.js, public/styles.css |
 | WS-5 Lifecycle & retention | server/lifecycle.js, server/sweeps.js |

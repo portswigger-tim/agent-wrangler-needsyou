@@ -1,5 +1,5 @@
 ---
-name: inbox
+name: needs-you
 description: Use when you need the human to decide, approve or act before you can proceed correctly, or when you are about to end your turn by asking them to choose (next steps, "should I proceed?", a "Decisions for you" list). Raise it in their "Needs you" queue with the request_human_input tool. Also covers [Needs you] answer messages, withdrawing a request, and what to do when the tool refuses.
 ---
 

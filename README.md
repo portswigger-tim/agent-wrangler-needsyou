@@ -128,7 +128,7 @@ the session can ask you now.
 
 An agent cannot change this setting.
 
-Agents learn how to ask from the `inbox` skill that comes with the extension.
+Agents learn how to ask from the `needs-you` skill that comes with the extension.
 Your answer arrives in the agent's prompt as a message that starts with
 `[Needs you]`.
 

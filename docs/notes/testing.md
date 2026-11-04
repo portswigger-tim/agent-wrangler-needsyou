@@ -15,7 +15,7 @@ This page has two parts:
 | Check | What it proves |
 | --- | --- |
 | `npm test` | The server and browser code, with a fake Agent Wrangler (187 tests at 0.1.0) |
-| `scripts/validate-manifest.mjs` | Agent Wrangler's real loader accepts the extension and does not quarantine it (block it from loading). It registers the 3 tools, the 6 message handlers, the `inbox` skill, the 4 settings, the 3 sweeps (timed jobs) and the client files. The tools work through Agent Wrangler's real MCP server: the tool list, one valid call, one invalid call and a refused helper session |
+| `scripts/validate-manifest.mjs` | Agent Wrangler's real loader accepts the extension and does not quarantine it (block it from loading). It registers the 3 tools, the 6 message handlers, the `needs-you` skill, the 4 settings, the 3 sweeps (timed jobs) and the client files. The tools work through Agent Wrangler's real MCP server: the tool list, one valid call, one invalid call and a refused helper session |
 | `scripts/boot-smoke.sh` | A real, temporary Agent Wrangler loads the extension. `scripts/dev-smoke.mjs` then tests every flow over the board's connection and `/mcp`, as a browser tab and an agent would |
 
 `dev-smoke.mjs` checks these flows:
@@ -239,7 +239,7 @@ a turn with a question for you.
 2. Start a new Claude session from the board. Run `/skills` or ask "Which
    skills do you have?".
 
-The `inbox` skill is in the list.
+The `needs-you` skill is in the list.
 
 3. From the board, start 3 Claude sessions and 3 Codex sessions in the test
    repository. Start each one yourself from the board UI. Do not ask another

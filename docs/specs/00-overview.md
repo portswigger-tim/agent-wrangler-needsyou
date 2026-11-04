@@ -121,7 +121,7 @@ Design rules:
 | WS | Spec | Depends on | Parallel with | Owns (files) |
 | --- | --- | --- | --- | --- |
 | WS-1 Foundation & store | `ws1-foundation.md` | — | — | package.json, index.js, server/manifest.js, server/store.js, server/item.js, server/data-dir.js, server/atomic-json.js, server/graph.js, server/handlers/index.js, server/handlers/read.js, server/test-helpers.js, test-setup.js, AGENTS.md, CLAUDE.md, **stubs** for every other WS file |
-| WS-2 Agent requests | `ws2-agent-requests.md` | WS-1 | WS-3, WS-4, WS-5 | server/tools/**, server/answer.js, server/can-ask.js, server/handlers/answer.js, skills/inbox/** |
+| WS-2 Agent requests | `ws2-agent-requests.md` | WS-1 | WS-3, WS-4, WS-5 | server/tools/**, server/answer.js, server/can-ask.js, server/handlers/answer.js, skills/needs-you/** |
 | WS-3 Passive signals | `ws3-passive-signals.md` | WS-1 | WS-2, WS-4, WS-5 | public/observer.js, server/reconcile.js, server/handlers/observe.js |
 | WS-4 "Needs you" UI | `ws4-inbox-ui.md` | WS-1 | WS-2, WS-3, WS-5 | public/index.js, public/inbox-*.js, public/icons.js, public/styles.css |
 | WS-5 Lifecycle & retention | `ws5-lifecycle.md` | WS-1 | WS-2, WS-3, WS-4 | server/lifecycle.js, server/sweeps.js |

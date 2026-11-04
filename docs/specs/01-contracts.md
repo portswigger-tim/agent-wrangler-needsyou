@@ -10,7 +10,7 @@ If a worker finds a problem here, it messages the orchestrator.
 - Label `Needs you`. Description: "A triage queue of the decisions and actions your sessions need from you."
 - **Internal names deliberately keep `inbox`:** the store (`host.stores.inbox`), the data file
   (`inbox.json`), the graph key (`graph.inbox`), the `inbox-*` message types, the `ibx-` CSS
-  prefix, the `inbox` skill and the file names. Only the extension id, and what must equal it
+  prefix and the file names. The skill is `needs-you` (renamed from `inbox` in 0.1.6). Only the extension id, and what must equal it
   (directory, `/ext/<id>/` asset paths, `#view=ext:<id>:…` routes, `ext:<id>` frame and event
   types), is `needsyou`.
 - `engines.wranglerApi: "^1.57.0"` in both `package.json` and the manifest.
@@ -38,7 +38,7 @@ export default {
   session: lifecycleHooks,     // server/lifecycle.js (WS-5): { onArchive, onPurge }
   sweeps: inboxSweeps,         // server/sweeps.js (WS-5)
   settings: SETTINGS,          // §7, inline in manifest (WS-1)
-  skills: ['inbox'],           // skills/inbox/SKILL.md (WS-2)
+  skills: ['needs-you'],       // skills/needs-you/SKILL.md (WS-2; was 'inbox' before 0.1.6)
   client: 'public/index.js',   // WS-4
   styles: 'public/styles.css', // WS-4
 };

@@ -45,7 +45,7 @@ export default {
   session: lifecycleHooks,
   sweeps: inboxSweeps,
   settings: SETTINGS,
-  skills: ['inbox'],
+  skills: ['needs-you'],
   client: 'public/index.js',
   styles: 'public/styles.css',
 };

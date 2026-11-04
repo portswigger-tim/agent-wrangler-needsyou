@@ -34,7 +34,7 @@ test('every declared asset and skill exists, and runtime deps are zod only', () 
   for (const rel of [manifest.client, manifest.styles, ...manifest.skills.map((s) => `skills/${s}/SKILL.md`)]) {
     assert.ok(fs.existsSync(path.join(dir, rel)), rel);
   }
-  assert.match(fs.readFileSync(path.join(dir, 'skills/inbox/SKILL.md'), 'utf8'), /^---\nname: inbox\n/);
+  assert.match(fs.readFileSync(path.join(dir, 'skills/needs-you/SKILL.md'), 'utf8'), /^---\nname: needs-you\n/);
   assert.deepEqual(Object.keys(pkg.dependencies), ['zod']);
   assert.ok(fs.existsSync(path.join(dir, 'package-lock.json')));
 });

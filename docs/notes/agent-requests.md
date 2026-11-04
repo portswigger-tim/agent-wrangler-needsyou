@@ -1,7 +1,7 @@
 # Agent requests: tools, answers, who may ask (WS-2)
 
 The non-obvious decisions behind `server/tools/`, `server/answer.js`,
-`server/can-ask.js`, `server/handlers/answer.js` and `skills/inbox/`.
+`server/can-ask.js`, `server/handlers/answer.js` and `skills/needs-you/`.
 
 ## `request_human_input`
 
@@ -19,7 +19,7 @@ The non-obvious decisions behind `server/tools/`, `server/answer.js`,
 - `list_my_human_requests` returns `{ requests: [...] }`, since
   structuredContent must be an object. It lists only the caller's agent items.
 - **The tool description is not how agents find the tool.** Agent Wrangler
-  measured a tool description alone at 0/6. The `inbox` skill and its
+  measured a tool description alone at 0/6. The `needs-you` skill and its
   WRANGLER.md nudge are what make agents call it. The description says plainly
   what the tool is *not* for.
 - **zod 4 against the wrangler's zod 3.** This repo's schemas are zod 4 and pass
