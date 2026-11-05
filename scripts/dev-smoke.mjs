@@ -111,7 +111,7 @@ if (!expect(ext, `${ID} is in graph.extensions`)) bail();
 if (!expect(!ext.quarantine, `${ID} is not quarantined (${ext.quarantine ?? 'none'})`)) bail();
 if (!expect(ext.enabled, `${ID} is enabled`)) bail();
 expect(ext.handlerTypes?.length === 6 && ext.handlerTypes.every((t) => t.startsWith('inbox-')), 'its 6 inbox-* handlers are registered');
-for (const asset of ['index.js', 'styles.css', 'observer.js']) {
+for (const asset of ['index.js', 'styles.css', 'observer.js', 'inbox-toasts.js']) {
   const res = await fetch(`${base}/ext/${ID}/${asset}`);
   expect(res.ok, `/ext/${ID}/${asset} is served (${res.status})`);
 }

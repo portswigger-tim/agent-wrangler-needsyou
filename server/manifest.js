@@ -20,6 +20,7 @@ export const SETTINGS = [
   { key: 'includeTransientApiErrors', type: 'toggle', label: 'Include API errors', help: 'Also raise an item when a session waits on a retryable API error. Off unless turned on.' },
   { key: 'maxOpenPerSession', type: 'number', label: 'Open requests per session', help: 'How many unanswered requests one session may have at once (1–20, default 5).', min: 1, max: 20, step: 1 },
   { key: 'retentionDays', type: 'number', label: 'Keep resolved items (days)', help: 'Resolved items are removed after this many days (1–90, default 7).', min: 1, max: 90, step: 1 },
+  { key: 'toastNotifications', type: 'toggle', label: 'Toast notifications', help: 'Show a toast for each new Needs you item, with a shortcut to view the request. Off unless turned on.' },
 ];
 
 export const REQUIRES = ['sessions:read', 'tasks:read', 'deliver', 'board:rebuild'];

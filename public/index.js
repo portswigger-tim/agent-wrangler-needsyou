@@ -1,6 +1,5 @@
 // Client half of "Needs you" (extension id `needsyou`): the triage-queue view
 // with its rail badge, the card pill and the "can ask the human" card action.
-// There are no toasts (removed in 0.1.1): the badge and the queue are enough.
 // The graph is the only read path (contracts §4); every mutation is an
 // `inbox-*` control message (§5).
 //
@@ -13,6 +12,7 @@ import { VIEW_ID, VIEW_HASH } from './inbox-model.js';
 import { createInboxView } from './inbox-view.js';
 import { createPill } from './inbox-pill.js';
 import { canAskAction } from './inbox-can-ask.js';
+import { createInboxToasts } from './inbox-toasts.js';
 
 export function createClient({ navigate = defaultNavigate, startObserver: start = startObserver } = {}) {
   return {
@@ -30,10 +30,13 @@ export function createClient({ navigate = defaultNavigate, startObserver: start 
         else pendingSelect = id;
       };
 
+      const toasts = createInboxToasts(api, openItem);
+
       function seeGraph(graph) {
         if (!graph || graph === lastGraph) return;
         lastGraph = graph;
         observer.update(graph);
+        toasts.update(graph);
       }
 
       reg.register('view', {

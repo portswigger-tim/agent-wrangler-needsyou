@@ -42,7 +42,7 @@ The **Needs you** button (a person silhouette) shows on the left rail. It has
 a badge that counts the items that need you. A session card with items shows
 a small chip with the same silhouette and the number of items. Select the chip
 to open the first one. **Needs you** also shows in **Settings → Extensions**,
-with three settings.
+with four settings.
 
 The extension asks for these capabilities:
 
@@ -138,6 +138,15 @@ Your answer arrives in the agent's prompt as a message that starts with
 | Include API errors | Off | Adds an item when a session waits on an API error that it will retry |
 | Open requests per session | 5 | The number of unanswered requests one session can have at the same time (1 to 20) |
 | Keep resolved items (days) | 7 | The number of days to keep closed items (1 to 90) |
+| Toast notifications | Off | Shows a toast for each new Needs you item, with a **View request** shortcut |
+
+Toast notifications use the same stack as scheduled-session notifications.
+They show the request title and session context. **View request** opens the
+item; closing the toast leaves the request unchanged. A toast is withdrawn
+when the item no longer needs action or you turn the setting off.
+
+Opening or reconnecting a board tab, or turning the setting on, does not
+replay items already in the queue. The setting takes effect immediately.
 
 ## Session status items need an open board tab
 

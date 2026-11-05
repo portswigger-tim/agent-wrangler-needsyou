@@ -212,6 +212,7 @@ peer message inviting a `send_message` reply to an address that isn't a session.
 | `includeTransientApiErrors` | toggle | `false` | WS-3 |
 | `maxOpenPerSession` | number, 1–20 | `5` | WS-1 store / WS-2 tool |
 | `retentionDays` | number, 1–90 | `7` | WS-5 |
+| `toastNotifications` | toggle | `false` | WS-4 client |
 
 ## 8. Who may ask the human (`server/can-ask.js`, WS-2)
 
