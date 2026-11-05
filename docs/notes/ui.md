@@ -95,8 +95,10 @@ changes neither the request nor its read state.
 all seen ids, including while disabled. Reconnects, restatements, repeated
 view/card updates and enabling the setting do not replay existing items.
 An outstanding toast is withdrawn when the item no longer needs action or
-the setting is disabled. `api.settings.onChange` applies disabling immediately;
-a withdrawn toast's pending action cannot navigate later.
+the setting is disabled. Same-tab settings changes may not emit a callback, so
+the next graph update also withdraws disabled toasts, usually within a few
+seconds. `api.settings.onChange` withdraws toasts when the host emits a change.
+A withdrawn toast's pending action cannot navigate later.
 
 The setting uses a separate key from the historical `notifyToasts` value so
 saved configuration cannot opt anyone in. Error toasts from the control router

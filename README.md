@@ -146,7 +146,8 @@ item; closing the toast leaves the request unchanged. A toast is withdrawn
 when the item no longer needs action or you turn the setting off.
 
 Opening or reconnecting a board tab, or turning the setting on, does not
-replay items already in the queue. The setting takes effect immediately.
+replay items already in the queue. Disabling withdraws outstanding notifications
+on the next board update, usually within a few seconds.
 
 ## Session status items need an open board tab
 

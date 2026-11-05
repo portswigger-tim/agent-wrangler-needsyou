@@ -54,9 +54,9 @@ function loadClient(initialSettings = {}) {
     window, document, api, observed, navigated, sent, contributions, viewEl, pillEl, notifications, withdrawn,
     observerStarted: () => observerStarted,
     update: (graph) => contributions.view.update(viewEl, null, graph),
-    setSettings(values) {
+    setSettings(values, { notify = true } = {}) {
       settings = values;
-      for (const fn of settingsListeners) fn(values);
+      if (notify) for (const fn of settingsListeners) fn(values);
     },
   };
 }
@@ -201,7 +201,7 @@ test('resolved, sending and missing items withdraw outstanding toasts and ignore
   }
 });
 
-test('disabling withdraws immediately and reenabling does not replay outstanding requests', async () => {
+test('a settings change callback withdraws toasts and reenabling does not replay requests', async () => {
   const c = loadClient({ toastNotifications: true });
   const request = item();
   c.update(graphOf([]));
@@ -218,6 +218,21 @@ test('disabling withdraws immediately and reenabling does not replay outstanding
   assert.equal(c.notifications.length, 1);
   c.update(graphOf([request, whileOff, item()]));
   assert.equal(c.notifications.length, 2);
+});
+
+test('disabling without a settings callback withdraws toasts on the next graph', async () => {
+  const c = loadClient({ toastNotifications: true });
+  const request = item();
+  c.update(graphOf([]));
+  c.update(graphOf([request]));
+  c.setSettings({ toastNotifications: false }, { notify: false });
+  assert.deepEqual(c.withdrawn, []);
+  c.update(graphOf([request]));
+  assert.deepEqual(c.withdrawn, [request.id]);
+  c.notifications[0].resolve('view');
+  await Promise.resolve();
+  assert.deepEqual(c.navigated, []);
+  assert.deepEqual(c.sent, []);
 });
 
 test('a failed notification is contained and never retried on the next graph', async () => {
