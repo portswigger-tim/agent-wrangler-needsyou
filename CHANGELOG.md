@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.9
+
+### Changed
+
+- **The "Let it ask you directly" tick matches the board's.** In the card
+  menu it is now the same check, in the same size and colour, as the tick on
+  **Auto-fix PR checks**, not a small grey character.
+
 ## 0.1.8
 
 ### Fixed

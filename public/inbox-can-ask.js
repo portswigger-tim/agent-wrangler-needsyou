@@ -8,8 +8,8 @@ import { ICONS } from './icons.js';
 // graph.inbox.sessions carries the effective `canAsk` and `canAskOverride`
 // (null when the human hasn't chosen). There is one item (0.1.4, C5) with a
 // fixed label and a tick as its hint when the session can ask the human. Core
-// shows an extension's hint as escaped text, so the tick is a character, not
-// core's SVG check. The click flips the effective state: setting an override
+// shows an extension's hint as escaped text, so the tick is a character, which
+// styles.css redraws as core's SVG check (0.1.9). The click flips the effective state: setting an override
 // always gives the non-default state, so clearing it (`null`) is the way back.
 //
 // The icon carries `icon ibx-icon`; core's `.context-menu-item svg` (15px)
