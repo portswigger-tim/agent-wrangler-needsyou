@@ -403,6 +403,24 @@ test('fixed-choice notes require a choice and keep drafts through ticks and re-r
   }
 });
 
+test('removing choices clears the stale selection and keeps the note as a free-text answer', () => {
+  const v = mountView();
+  const d = item({ kind: 'question', options: [{ id: 'a', label: 'A' }], allowFreeText: false });
+  v.view.update(graphOf([d]));
+  v.view.select(d.id);
+  v.q('.ibx-option').click();
+  const ta = v.q('.ibx-text');
+  ta.value = 'another approach';
+  ta.dispatchEvent(new v.window.Event('input', { bubbles: true }));
+  v.view.update(graphOf([{ ...d, options: [], allowFreeText: true, updatedAt: 2 }]));
+  assert.equal(v.q('.ibx-option'), null);
+  assert.equal(v.q('.ibx-text').value, 'another approach');
+  assert.equal(v.q('.ibx-send').disabled, false);
+  v.q('.ibx-text').focus();
+  v.press('Enter', { ctrlKey: true });
+  assert.deepEqual(v.sent.at(-1), { type: 'inbox-answer', id: d.id, text: 'another approach' });
+});
+
 test('a free-text item sends on Cmd/Ctrl+Enter', () => {
   const v = mountView();
   const qn = item({ kind: 'question', options: [], allowFreeText: true });

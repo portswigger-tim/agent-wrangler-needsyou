@@ -763,6 +763,9 @@ export function createInboxView(el, api, {
   function update(nextGraph) {
     graph = nextGraph;
     items = inboxOf(graph)?.items ?? [];
+    for (const [id, choice] of choices) {
+      if (!byId(id)?.options.some((opt) => opt.id === choice)) choices.delete(id);
+    }
     const hadFocus = root.contains(doc.activeElement);
     order = queueOrder(items);
     closed = closedOrder(items);
