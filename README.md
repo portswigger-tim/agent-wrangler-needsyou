@@ -42,7 +42,7 @@ The **Needs you** button (a person silhouette) shows on the left rail. It has
 a badge that counts the items that need you. A session card with items shows
 a small chip with the same silhouette and the number of items. Select the chip
 to open the first one. **Needs you** also shows in **Settings → Extensions**,
-with four settings.
+with three settings.
 
 The extension asks for these capabilities:
 
