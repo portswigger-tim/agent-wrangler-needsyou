@@ -96,8 +96,8 @@ interface Item {
 }
 ```
 
-- **Unread:** `state === 'open' && readAt === null`. It only decides the row dot (toasts were removed in 0.1.1, F14),
-  never the order or the badge.
+- **Unread:** `state === 'open' && readAt === null`. It only decides the row dot,
+  never toast notifications, the order or the badge.
 - **Needs action:** `state === 'open'`, or an `answered` item whose delivery `failed`.
 - **Validation:** `validateAgentRequest(args) -> { ok, value | error }` and `normaliseItem(raw)`
   enforce every limit, and nowhere else does.
