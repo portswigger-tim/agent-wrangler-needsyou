@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.10
+
+### Added
+
+- **Optional toast notifications.** Enable **Toast notifications** to show new
+  requests in the board notification stack with a **View request** shortcut.
+  The setting is off by default. Existing requests are not replayed, and
+  closing a notification leaves its request unchanged.
+
 ## 0.1.9
 
 ### Changed

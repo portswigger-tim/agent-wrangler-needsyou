@@ -83,13 +83,26 @@ An agent request asks you to confirm inline, since dismissing means the agent
 never gets an answer. A status item dismisses at once: it comes back on the
 session's next `needs-you` episode anyway.
 
-## No toasts
+## Toast notifications
 
-0.1.0 raised a toast for each new item that stopped a session. 0.1.1 removed
-them at the human's request (fixes F14): the rail badge and the queue are
-enough. There is no `api.ui.notify` call and no `notifyToasts` setting. An old
-`notifyToasts` value left in config.json is ignored. Error toasts from the
-control router (a refused answer, for example) are the board's own and stay.
+The **Toast notifications** setting is off unless `toastNotifications === true`.
+The client uses `api.ui.notify` for each newly seen open item, with its title,
+session context and a **View request** action. The action uses the same
+`openItem` navigation and pending selection as a card pill. Closing a toast
+changes neither the request nor its read state.
+
+`inbox-toasts.js` seeds the first valid inbox snapshot silently and remembers
+all seen ids, including while disabled. Reconnects, restatements, repeated
+view/card updates and enabling the setting do not replay existing items.
+An outstanding toast is withdrawn when the item no longer needs action or
+the setting is disabled. Same-tab settings changes may not emit a callback, so
+the next graph update also withdraws disabled toasts, usually within a few
+seconds. `api.settings.onChange` withdraws toasts when the host emits a change.
+A withdrawn toast's pending action cannot navigate later.
+
+The setting uses a separate key from the historical `notifyToasts` value so
+saved configuration cannot opt anyone in. Error toasts from the control router
+remain the board's own.
 
 ## Icon and card chip
 
