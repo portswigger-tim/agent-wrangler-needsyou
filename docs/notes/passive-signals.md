@@ -36,18 +36,14 @@ from, so a server-side source can replace the tabs later with no other change.
   item comes back `dismissed`. After a restart, the persistent check is a
   dismissed item with the same `dedupeKey`. A dismissed episode stays closed
   until the session next enters `needs-you`.
-- **Answered elsewhere.** A blocking agent request closes as
-  `answered-elsewhere` when its session goes `working` with no answer from the
-  queue, but only once the session has been seen idle (or in `needs-you`) since
-  the request appeared, and only past a 15 s grace period. Without those, the
-  turn that raised the request could close it. **Setting:** "Close when the
-  session moves on".
-- **That "seen idle" flag is in memory.** After a server restart, a still-open
-  blocking request closes only once its session is seen idle and then working
-  again. If the human answered in the terminal just before the restart, the
-  item stays open until the agent withdraws it or the human dismisses it.
-  This is known and documented for 0.1.1 (fixes F5), including in the
-  README. Persisting the flag needs a new store field; consider it for 0.2.
+- **No "answered elsewhere" (removed in 0.1.8, issue #1).** Up to 0.1.7, a
+  blocking agent request closed as `answered-elsewhere` when its session went
+  idle and then `working` again with no answer from the queue. Any message
+  the human sent did that, including one that did not answer the request
+  (a question about it, "wait"), so the decision was lost. Now only the
+  agent closes a request answered in chat, with `withdraw_human_request`, as
+  the skill tells it to. The "Close when the session moves on" setting is
+  gone. `answered-elsewhere` stays a valid reason so older items still show.
 
 ## `AskUserQuestion` is covered
 

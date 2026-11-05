@@ -42,7 +42,7 @@ The **Needs you** button (a person silhouette) shows on the left rail. It has
 a badge that counts the items that need you. A session card with items shows
 a small chip with the same silhouette and the number of items. Select the chip
 to open the first one. **Needs you** also shows in **Settings → Extensions**,
-with four settings.
+with three settings.
 
 The extension asks for these capabilities:
 
@@ -59,7 +59,7 @@ There are two types of item.
 
 | Type | When it appears | Kind | When it closes |
 | --- | --- | --- | --- |
-| **Agent request** | An agent asks you with the `request_human_input` tool | Decision, approval, question or action | You answer and the session gets the answer. The agent withdraws it. The session is archived. It expires. Or, if the agent stopped to wait, the session starts work again without an answer from the list (because you answered in the terminal) |
+| **Agent request** | An agent asks you with the `request_human_input` tool | Decision, approval, question or action | You answer and the session gets the answer. The agent withdraws it (it does this when you answer in the session instead). The session is archived. It expires. Or you dismiss it |
 | **Session status** | A session stops on something only you can do: a permission prompt, a trust dialog, a sign-in or an API error that blocks it | Blocked | The session starts again. The session is archived. Or you dismiss it |
 
 These do not appear, unless you change a setting:
@@ -73,10 +73,9 @@ Each need appears once. It does not appear again when you reload the page,
 restart Agent Wrangler or open a second tab. If an agent asks the same thing
 again, its earlier request changes. A second item does not appear.
 
-If Agent Wrangler restarts while an agent request is waiting, and you then
-answer it in the terminal, the request may stay open. It closes the next time
-the session stops and starts work again. Or you can dismiss it, or the agent
-can withdraw it.
+A message you send in the session does not close an agent request. If it
+answers the request, the agent withdraws the request. If the agent does not,
+dismiss it.
 
 You cannot approve a permission prompt from the list in this version. The item
 links to the session. You can also select **Show terminal here** to open the
@@ -139,7 +138,6 @@ Your answer arrives in the agent's prompt as a message that starts with
 | Include API errors | Off | Adds an item when a session waits on an API error that it will retry |
 | Open requests per session | 5 | The number of unanswered requests one session can have at the same time (1 to 20) |
 | Keep resolved items (days) | 7 | The number of days to keep closed items (1 to 90) |
-| Close when the session moves on | On | Closes an agent request when its session starts work again without an answer from the list |
 
 ## Session status items need an open board tab
 

@@ -5,18 +5,16 @@ import { singleLine } from './item.js';
 // knows nothing about where `observed` came from, so a server-side source can
 // call it unchanged. The caller rebuilds the board if anything came back.
 
-const GRACE_MS = 15_000;
 const MAX_STATUS_STRING = 500;
 const MAX_SESSION_ID = 200;
 const TITLE_WAITING_FOR = 80;
 
 // What a restart forgets. Everything durable is in the store; this only closes
-// the gaps the store can't see (see "dismissed" and "answered elsewhere" below).
+// the gap the store can't see (see "dismissed" below).
 export function createReconcileState() {
   return {
     openItem: new Map(), // sessionId -> id of the status item this process last saw open for it
     dismissed: new Map(), // sessionId -> true while the dismissed episode is still going
-    idleSeen: new Set(), // ids of agent items whose session was seen idle/needs-you after they appeared
   };
 }
 
@@ -77,7 +75,7 @@ const statusString = (v) => (typeof v === 'string' && v ? v.slice(0, MAX_STATUS_
 const isNeedsYou = (o) => o.status === 'needs-you';
 const asFn = (v) => (typeof v === 'function' ? v : () => v);
 
-// `settings` is either the values (`{ includeTransientApiErrors, autoResolveOnWorking }`)
+// `settings` is either the values (`{ includeTransientApiErrors }`)
 // or a host.settings-style `{ get }` view.
 const readSetting = (settings, key) => (typeof settings?.get === 'function' ? settings.get(key) : settings?.[key]);
 
@@ -87,7 +85,6 @@ const readSetting = (settings, key) => (typeof settings?.get === 'function' ? se
 export function reconcile(store, observed, { settings = {}, now = Date.now, taskIdFor = () => null, log = () => {}, state = defaultState } = {}) {
   const t = asFn(now)();
   const includeTransient = readSetting(settings, 'includeTransientApiErrors') === true;
-  const autoResolve = readSetting(settings, 'autoResolveOnWorking') !== false;
 
   const sessions = new Map();
   for (const o of Array.isArray(observed) ? observed : []) {
@@ -184,25 +181,9 @@ export function reconcile(store, observed, { settings = {}, now = Date.now, task
     }
   }
 
-  // Answered elsewhere: a blocking request whose session is working again with no
-  // answer from us was settled in the terminal. Only after the session was seen
-  // idle (or asking) since the request appeared, so the turn that raised it can't
-  // close it, and only past the grace for that turn still finishing.
-  const live = new Set();
-  for (const i of items) {
-    if (i.source !== 'agent' || i.state !== 'open' || !i.blocking) continue;
-    live.add(i.id);
-    const status = sessions.get(i.sessionId)?.status;
-    if (status === 'idle' || status === 'needs-you') state.idleSeen.add(i.id);
-    else if (autoResolve && status === 'working' && state.idleSeen.has(i.id) && t - i.createdAt > GRACE_MS) {
-      try {
-        if (store.resolve(i.id, 'answered-elsewhere')) resolved.push(i.id);
-      } catch (err) {
-        log(`needs-you could not close ${i.id}: ${err.message}`);
-      }
-    }
-  }
-  for (const id of state.idleSeen) if (!live.has(id)) state.idleSeen.delete(id);
+  // Agent requests are never closed here. A session going back to work says
+  // nothing about whether the human answered (issue #1): the agent withdraws
+  // a request once it has its answer in chat.
 
   return { opened, updated, resolved };
 }

@@ -9,8 +9,8 @@ seeding rule), `public/app.js` around `trackJustFinished`/`isAcknowledged`.
 ## Goal
 
 Turn core's `needs-you` session status into items, and close them when the status clears, so
-"Needs you" mirrors reality with no duplicates across tabs or restarts. Also apply the
-"answered-elsewhere" rule to blocking agent items.
+"Needs you" mirrors reality with no duplicates across tabs or restarts. (Up to 0.1.7 it also
+applied the "answered-elsewhere" rule, step 5, to blocking agent items. 0.1.8 removed it: issue #1.)
 
 ## Owned files
 
