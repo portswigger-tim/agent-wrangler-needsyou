@@ -41,7 +41,6 @@ export const observeHandler = {
     const observed = parseObserved(msg);
     const settings = {
       includeTransientApiErrors: host.settings.get('includeTransientApiErrors'),
-      autoResolveOnWorking: host.settings.get('autoResolveOnWorking'),
     };
     const taskIdFor = (sessionId) => host.sessions.get(sessionId)?.taskId ?? null;
     const { opened, updated, resolved } = reconcile(host.stores.inbox, observed, { settings, now: Date.now, taskIdFor, log: host.log });

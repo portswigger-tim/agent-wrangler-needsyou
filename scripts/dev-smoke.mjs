@@ -149,8 +149,7 @@ const noId = await callTool(null, 'request_human_input', { kind: 'question', tit
 expect(noId.error || noId.result?.isError, 'a request with no session identity is refused');
 
 // 3. A passive needs-you signal, as a board tab reports it. Every non-archived
-// session is listed (complete: true); smoke-human stays idle throughout so its
-// blocking request is never taken for answered-elsewhere.
+// session is listed (complete: true).
 const observe = (workerStatus, waitingFor = null) => send({
   type: 'inbox-observe', complete: true,
   sessions: [

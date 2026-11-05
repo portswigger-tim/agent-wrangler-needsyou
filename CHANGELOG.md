@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.8
+
+### Fixed
+
+- **A reply in the session no longer closes a request** (#1). An agent
+  request used to close as "answered in the session" as soon as its session
+  started work again, even when your message didn't answer it (a question
+  about it, or "wait"). The decision was then lost. Now a request stays open
+  until you answer it in the list, or the agent withdraws it after you answer
+  in chat, or you dismiss it.
+
+### Removed
+
+- The **Close when the session moves on** setting, which turned that rule on.
+
 ## 0.1.7
 
 ### Changed

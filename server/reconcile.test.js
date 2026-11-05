@@ -290,80 +290,32 @@ test('status items are untouched by agent items and vice versa', () => {
   assert.equal(store.get(a.id).state, 'open');
 });
 
-// ---- answered elsewhere ----
+// ---- agent requests ----
 
 function agentItem(f, extra = {}) {
   return f.store.create({ source: 'agent', kind: 'decision', sessionId: 's1', title: 'Pick one', ...extra });
 }
 
-test('answered-elsewhere needs the idle then working sequence, and the grace', () => {
+test('a session going back to work never closes an agent request (issue #1)', () => {
   const f = setup();
-  const item = agentItem(f);
-  const { run, now, store } = f;
-  // created mid-turn: working straight away is not "answered elsewhere"
-  now.tick(60_000);
-  assert.deepEqual(run([other('s1', 'working')]).resolved, []);
-  assert.equal(store.get(item.id).state, 'open');
-  // the turn ends: idle seen
-  assert.deepEqual(run([other('s1', 'idle')]).resolved, []);
-  // working again, but inside the grace window of an item created only just now
-  const fresh = agentItem(f, { title: 'Fresh', dedupeKey: 'k2' });
-  run([other('s1', 'idle')]);
-  now.tick(5000);
-  const r1 = run([other('s1', 'working')]);
-  assert.deepEqual(r1.resolved, [item.id]);
-  assert.equal(store.get(fresh.id).state, 'open');
-  now.tick(11_000);
-  const r2 = run([other('s1', 'working')]);
-  assert.deepEqual(r2.resolved, [fresh.id]);
-  assert.deepEqual([store.get(fresh.id).state, store.get(fresh.id).resolvedReason], ['resolved', 'answered-elsewhere']);
-});
-
-test('answered-elsewhere: needs-you counts as seen, and the grace is strictly more than 15 s', () => {
-  const f = setup();
-  const item = agentItem(f);
-  f.run([needsYou('s1')]);
-  f.now.tick(15_000);
-  assert.deepEqual(f.run([other('s1', 'working')]).resolved.filter((id) => id === item.id), []);
-  f.now.tick(1);
-  assert.deepEqual(f.run([other('s1', 'working')]).resolved, [item.id]);
-});
-
-test('answered-elsewhere ignores non-blocking, answered and absent-session items', () => {
-  const f = setup();
+  const blocking = agentItem(f);
   const nonBlocking = agentItem(f, { blocking: false, dedupeKey: 'nb' });
-  const answeredItem = agentItem(f, { dedupeKey: 'ans', options: [{ id: 'a', label: 'A' }] });
-  const gone = f.store.create({ source: 'agent', kind: 'question', sessionId: 'ghost', title: 'q' });
-  f.run([other('s1', 'idle'), other('ghost', 'idle')]);
-  f.store.answer(answeredItem.id, { optionId: 'a' });
-  f.now.tick(60_000);
-  const r = f.run([other('s1', 'working')]);
-  assert.deepEqual(r.resolved, []);
+  // The request is raised, the turn ends, then the human sends a message that
+  // may or may not answer it and the session works again.
+  for (const status of ['working', 'idle', 'needs-you', 'working']) {
+    f.now.tick(60_000);
+    const observed = status === 'needs-you' ? needsYou('s1') : other('s1', status);
+    assert.deepEqual(f.run([observed]).resolved.filter((id) => id === blocking.id || id === nonBlocking.id), []);
+  }
+  assert.equal(f.store.get(blocking.id).state, 'open');
   assert.equal(f.store.get(nonBlocking.id).state, 'open');
-  assert.equal(f.store.get(answeredItem.id).state, 'answered');
-  assert.equal(f.store.get(gone.id).state, 'open');
-});
-
-test('autoResolveOnWorking = false disables answered-elsewhere', () => {
-  const f = setup({ autoResolveOnWorking: false });
-  const item = agentItem(f);
-  f.run([other('s1', 'idle')]);
-  f.now.tick(60_000);
-  assert.deepEqual(f.run([other('s1', 'working')]).resolved, []);
-  assert.equal(f.store.get(item.id).state, 'open');
-  // switching it on later applies from then on
-  f.settings.autoResolveOnWorking = true;
-  assert.deepEqual(f.run([other('s1', 'working')]).resolved, [item.id]);
 });
 
 test('settings may be a host.settings-style view', () => {
   const f = setup();
-  const item = agentItem(f);
-  f.run([other('s1', 'idle')]);
-  f.now.tick(60_000);
-  const view = { get: (k) => (k === 'autoResolveOnWorking' ? false : undefined) };
-  assert.deepEqual(f.run([other('s1', 'working')], { settings: view }).resolved, []);
-  assert.deepEqual(f.run([other('s1', 'working')], { settings: { get: () => undefined } }).resolved, [item.id]);
+  const view = { get: (k) => (k === 'includeTransientApiErrors' ? true : undefined) };
+  const r = f.run([needsYou('s1', { waitingFor: 'retrying', waitingReason: 'api-error' })], { settings: view });
+  assert.equal(r.opened.length, 1);
 });
 
 test('the cause is set on create, from the same table as the title', () => {

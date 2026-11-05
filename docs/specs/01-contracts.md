@@ -57,7 +57,7 @@ type State  = 'open' | 'answered' | 'resolved';
 type ResolvedReason =
   | 'delivered'           // agent item: answer reached the session
   | 'withdrawn'           // agent called withdraw_human_request
-  | 'answered-elsewhere'  // blocking agent item; session went working with no answer from us
+  | 'answered-elsewhere'  // up to 0.1.7 only (issue #1); kept so older items still read
   | 'status-cleared'      // status item: session left needs-you
   | 'dismissed'           // human dismissed
   | 'session-archived'
@@ -212,7 +212,6 @@ peer message inviting a `send_message` reply to an address that isn't a session.
 | `includeTransientApiErrors` | toggle | `false` | WS-3 |
 | `maxOpenPerSession` | number, 1–20 | `5` | WS-1 store / WS-2 tool |
 | `retentionDays` | number, 1–90 | `7` | WS-5 |
-| `autoResolveOnWorking` | toggle | `true` | WS-3 |
 
 ## 8. Who may ask the human (`server/can-ask.js`, WS-2)
 

@@ -48,7 +48,7 @@ This is built as an **external extension, with no changes to Agent Wrangler**.
 
 | Source | Trigger | Item kind | Closes when |
 | --- | --- | --- | --- |
-| **Agent request** (`source: "agent"`) | Agent calls MCP `request_human_input` with a required-action `kind` | `decision`, `approval`, `question`, `action` | Human answers (delivered), agent withdraws, session archived/purged, or (blocking) session works again with no answer → `answered-elsewhere` |
+| **Agent request** (`source: "agent"`) | Agent calls MCP `request_human_input` with a required-action `kind` | `decision`, `approval`, `question`, `action` | Human answers (delivered), agent withdraws, session archived/purged, expired, or dismissed (0.1.8: no longer closed when the session works again) |
 | **Session status** (`source: "status"`) | A graph session enters core `status === "needs-you"` | `blocked` | Status leaves `needs-you`, session archived/purged, or the human dismisses that episode |
 
 Excluded by default:
