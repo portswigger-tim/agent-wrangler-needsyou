@@ -81,6 +81,10 @@ You cannot approve a permission prompt from the list in this version. The item
 links to the session. You can also select **Show terminal here** to open the
 session's terminal in the list.
 
+Every agent request lets you answer in your own words instead of selecting
+an offered option. You can also add an optional note to your choice. Select
+**Use text only** to clear a choice while keeping your draft.
+
 ## How to work through the list
 
 Use these keys in the **Needs you** view:
