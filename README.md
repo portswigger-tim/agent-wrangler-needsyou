@@ -77,12 +77,19 @@ A message you send in the session does not close an agent request. If it
 answers the request, the agent withdraws the request. If the agent does not,
 dismiss it.
 
-Selecting an open permission prompt automatically shows the session's terminal
-in the detail pane, where you can allow or deny it. **Hide terminal** keeps it
-hidden for that selection; selecting another permission prompt opens its terminal
+Deliberately opening an open permission prompt shows the session's terminal
+in the detail pane, where you can allow or deny it. The first item previewed on
+a desktop, and the next preview after an item closes, wait for you to open them.
+**Hide terminal** keeps it hidden for that selection; selecting another permission prompt opens its terminal
 by default. Other session statuses offer **Show terminal here**. **Open session**
 is always available, including when embedding is unavailable or the session is
-no longer running. Viewing a prompt never resumes a dormant session or answers it.
+no longer running. Opening the embedded session acknowledges its alert and clears
+its snooze, just like opening the session. It never answers a prompt or resumes
+a dormant session automatically. The automatic terminal restores your saved tab
+when closed; manual **Show terminal here** and **Open session** remember Terminal.
+Switching Chat → Terminal inside the automatic embed can still restore your
+earlier saved tab when closed. Keyboard focus stays put on the initial automatic mount; the host can focus the
+terminal again if it reconnects.
 
 ## How to work through the list
 

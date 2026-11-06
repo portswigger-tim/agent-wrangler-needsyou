@@ -881,7 +881,7 @@ test('the session link of a blocked item and Show terminal here both ask for the
 const liveGraph = (items, core = [...new Set(items.map((i) => i.sessionId))].map((sessionId) => ({ sessionId, managed: true }))) => graphOf(items, { core });
 const settleVisibility = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-test('a visible desktop approval auto-pick mounts once on Terminal without taking focus or sending input', () => {
+test('a desktop auto-pick has no terminal side effects; explicitly opening that same approval mounts once', () => {
   const v = mountView({ twoPanes: () => true });
   const s = statusItem({ title: 'Tool permission', status: { cause: 'permission', waitingReason: 'permission' } });
   const outside = v.document.createElement('input');
@@ -889,6 +889,10 @@ test('a visible desktop approval auto-pick mounts once on Terminal without takin
   outside.focus();
   v.view.update(liveGraph([s]));
   assert.equal(v.view.selectedId, s.id);
+  assert.equal(v.mounts.length, 0);
+  assert.equal(v.window.localStorage.getItem('cm-session-view'), null);
+  assert.deepEqual(v.sent, []);
+  v.view.select(s.id);
   assert.equal(v.mounts.length, 1);
   assert.equal(v.mounts[0].sid, s.sessionId);
   assert.equal(v.mounts[0].target, v.q('.ibx-terminal'));
@@ -896,7 +900,7 @@ test('a visible desktop approval auto-pick mounts once on Terminal without takin
   assert.equal(text(v.q('.ibx-terminal-toggle')), 'Hide terminal');
   assert.deepEqual(JSON.parse(v.window.localStorage.getItem('cm-session-view')), { s1: 'terminal' });
   assert.equal(v.document.activeElement, outside);
-  assert.deepEqual(v.sent, []);
+  assert.deepEqual(v.sent.filter((f) => f.type !== 'inbox-mark-read'), []);
   assert.deepEqual(v.opened, []);
   v.view.update(liveGraph([{ ...s, updatedAt: 2000, body: 'Restated prompt' }]));
   v.view.update(liveGraph([structuredClone(s)]));
@@ -915,7 +919,9 @@ test('automatic embedding restores focus even when the host mount focuses its te
   const outside = v.document.createElement('input');
   v.document.body.append(outside);
   outside.focus();
-  v.view.update(liveGraph([statusItem()]));
+  const s = statusItem();
+  v.view.update(liveGraph([s]));
+  v.view.select(s.id);
   assert.ok(mountedInput, 'the host mounted');
   assert.equal(v.document.activeElement, outside);
 });
@@ -925,6 +931,7 @@ test('Hide persists through ticks and view changes for this selection; each new 
   const a = statusItem({ createdAt: 1 });
   const b = statusItem({ createdAt: 2, sessionId: 's2' });
   v.view.update(liveGraph([a, b]));
+  v.view.select(a.id);
   assert.equal(v.mounts.length, 1);
   v.q('.ibx-terminal-toggle').click();
   assert.equal(v.mounts[0].unmounted, true);
@@ -989,6 +996,7 @@ test('closing detail, resolving, disappearing and becoming dormant all release e
     const v = mountView({ twoPanes: () => true });
     const s = statusItem();
     v.view.update(liveGraph([s]));
+    v.view.select(s.id);
     assert.equal(v.mounts.length, 1, change);
     if (change === 'close') v.q('.ibx-close').click();
     if (change === 'resolved') v.view.update(liveGraph([{ ...s, state: 'resolved', resolvedReason: 'status-cleared' }]));
@@ -1017,7 +1025,9 @@ test('non-permission statuses, agent approvals, closed and unavailable sessions 
   }
   for (const core of [[], [{ sessionId: 's1', managed: false }], [{ sessionId: 's1', managed: true, archived: true }]]) {
     const v = mountView({ twoPanes: () => true });
-    v.view.update(liveGraph([statusItem()], core));
+    const s = statusItem();
+    v.view.update(liveGraph([s], core));
+    v.view.select(s.id);
     assert.equal(v.mounts.length, 0, 'unavailable session is never resumed by viewing a prompt');
   }
 });
@@ -1070,6 +1080,7 @@ test('native hidden releases an approval and prevents graph ticks from remountin
   const v = mountView({ twoPanes: () => true });
   const s = statusItem();
   v.view.update(liveGraph([s]));
+  v.view.select(s.id);
   v.host.hidden = true;
   await settleVisibility();
   assert.equal(v.mounts[0].unmounted, true);
@@ -1080,7 +1091,7 @@ test('native hidden releases an approval and prevents graph ticks from remountin
   assert.equal(v.mounts.length, 2);
 });
 
-test('an approval auto-picked on desktop releases when a resize hides the detail on phone', () => {
+test('an approval opened with desktop keyboard navigation releases when resize hides its detail on phone', () => {
   let resize;
   let disconnected = false;
   let wide = true;
@@ -1092,6 +1103,7 @@ test('an approval auto-picked on desktop releases when a resize hides the detail
     };
   } });
   v.view.update(liveGraph([statusItem()]));
+  v.press('j');
   assert.equal(v.mounts.length, 1);
   wide = false;
   assert.equal(typeof resize, 'function');
@@ -1142,6 +1154,7 @@ test('real host embed lends and releases its singleton without hidden-view takeo
   const a = statusItem({ sessionId: 's1', createdAt: 1 });
   const b = statusItem({ sessionId: 's2', createdAt: 2 });
   v.view.update(liveGraph([a, b]));
+  v.view.select(a.id);
   assert.ok(v.q('.ibx-terminal').contains(sidebar));
   assert.equal(v.document.activeElement, outside);
   v.view.update(liveGraph([a, b]));
@@ -1166,4 +1179,150 @@ test('real host embed lends and releases its singleton without hidden-view takeo
   v.view.unmount();
   assert.equal(embed.owner(), null);
   assert.equal(sidebar.parentElement, home);
+});
+
+test('advancing after resolution only previews the next approval without mounting it', () => {
+  const v = mountView({ twoPanes: () => true });
+  const a = statusItem({ createdAt: 1 });
+  const b = statusItem({ createdAt: 2, sessionId: 's2' });
+  v.view.update(liveGraph([a, b]));
+  v.view.select(a.id);
+  assert.equal(v.mounts.length, 1);
+  v.view.update(liveGraph([{ ...a, state: 'resolved', resolvedReason: 'status-cleared' }, b]));
+  assert.equal(v.view.selectedId, b.id);
+  assert.equal(v.mounts[0].unmounted, true);
+  assert.equal(v.mounts.length, 1);
+  assert.equal(v.window.localStorage.getItem('cm-session-view'), null);
+  v.view.select(b.id);
+  assert.equal(v.mounts.length, 2);
+});
+
+test('an automatic terminal preference lasts only for the embed and restores Chat on release', () => {
+  const v = mountView({ twoPanes: () => true });
+  const s = statusItem();
+  v.window.localStorage.setItem('cm-session-view', JSON.stringify({ s1: 'chat', other: 'chat' }));
+  v.view.update(liveGraph([s]));
+  v.view.select(s.id);
+  assert.deepEqual(JSON.parse(v.window.localStorage.getItem('cm-session-view')), { s1: 'terminal', other: 'chat' });
+  v.view.update(liveGraph([s]));
+  assert.equal(v.mounts.length, 1);
+  v.q('.ibx-terminal-toggle').click();
+  assert.deepEqual(JSON.parse(v.window.localStorage.getItem('cm-session-view')), { s1: 'chat', other: 'chat' });
+  v.q('.ibx-terminal-toggle').click();
+  v.view.unmount();
+  assert.deepEqual(JSON.parse(v.window.localStorage.getItem('cm-session-view')), { s1: 'terminal', other: 'chat' }, 'manual Show keeps its existing permanent preference');
+});
+
+test('failed automatic mounts restore the exact original preference without tick retries', () => {
+  for (const mode of ['null', 'throw']) {
+    let attempts = 0;
+    const v = mountView({ twoPanes: () => true, api: { mountSession() {
+      attempts++;
+      if (mode === 'throw') throw new Error('not available');
+      return null;
+    } } });
+    const raw = '{ "s1": "chat", "other": "terminal" }';
+    v.window.localStorage.setItem('cm-session-view', raw);
+    const s = statusItem();
+    v.view.update(liveGraph([s]));
+    v.view.select(s.id);
+    assert.equal(v.window.localStorage.getItem('cm-session-view'), raw);
+    v.view.update(liveGraph([s]));
+    assert.equal(attempts, 1);
+  }
+});
+
+test('host selection stack acknowledges and unsnoozes only deliberately opened approvals', { skip: !process.env.AW_REPO }, async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { pathToFileURL } = await import('node:url');
+  const { resolve } = await import('node:path');
+  const { createContext, runInContext } = await import('node:vm');
+  const { createSessionEmbed } = await import(pathToFileURL(resolve(process.env.AW_REPO, 'public/session-embed.js')).href);
+  const { viewForSession: resolveSessionView } = await import(pathToFileURL(resolve(process.env.AW_REPO, 'public/session-view.js')).href);
+  const source = await readFile(resolve(process.env.AW_REPO, 'public/app.js'), 'utf8');
+  const hostFunction = (name) => {
+    const found = source.match(new RegExp(`^function ${name}\\([^]*?^}\\n`, 'm'));
+    assert.ok(found, `host still defines ${name}`);
+    return found[0];
+  };
+  let embed;
+  const v = mountView({ twoPanes: () => true, api: { mountSession: (target, sid) => embed.mount(target, sid) } });
+  const main = v.document.createElement('main');
+  const home = v.document.createElement('div');
+  const sidebar = v.document.createElement('div');
+  const input = v.document.createElement('textarea');
+  sidebar.append(input);
+  home.append(sidebar);
+  main.append(home);
+  v.document.body.append(main);
+  const a = statusItem({ createdAt: 1 });
+  const b = statusItem({ createdAt: 2, sessionId: 's2' });
+  const sessions = [a, b].map((i) => ({ sessionId: i.sessionId, managed: true, snooze: true, updatedAt: 1000 }));
+  const hostSent = [];
+  const views = [];
+  const noop = () => {};
+  const host = createContext({ document: v.document, localStorage: v.window.localStorage, latestSessions: sessions,
+    selectedSessionId: null, currentView: 'needsyou', acknowledgedAt: new Map(), justFinished: new Set(),
+    ACK_KEY: 'wrangler.acknowledged', CHAT_VIEW_KEY: 'cm-session-view', chatViewDefault: true, resolveSessionView,
+    persistJustFinished: noop, isDiffPanelOpen: () => false, disarmChatHandoff: noop,
+    setUnread: noop, renderPanel: noop, syncShellTerminal: noop, syncHash: noop,
+    send: (frame) => hostSent.push(frame), resumeDormant: () => assert.fail('must not launch a session'),
+  });
+  // Run the host's selection and preference code with unrelated panel rendering stubbed.
+  runInContext(['showEmbeddedSession', 'selectSession', 'applyEmbedView', 'acknowledge', 'persistAcknowledged', 'readSessionViews', 'viewForSession']
+    .map(hostFunction).join('\n'), host);
+  host.renderSidebar = (s) => { views.push(host.viewForSession(s.sessionId)); input.focus(); };
+  embed = createSessionEmbed({ document: v.document, parts: () => ({ sidebar }),
+    show: (sid, owner) => host.showEmbeddedSession(sid, owner), release: () => { host.selectedSessionId = null; } });
+  const raw = '{ "s1": "chat", "s2": "chat" }';
+  v.window.localStorage.setItem('cm-session-view', raw);
+  v.view.update(liveGraph([a, b], sessions));
+  assert.equal(v.window.localStorage.getItem('wrangler.acknowledged'), null);
+  assert.equal(v.window.localStorage.getItem('cm-session-view'), raw);
+  assert.deepEqual(hostSent, []);
+  assert.deepEqual(views, []);
+  v.view.select(a.id);
+  assert.deepEqual(views, ['terminal']);
+  assert.equal(JSON.parse(v.window.localStorage.getItem('wrangler.acknowledged')).s1, 1000);
+  assert.deepEqual(hostSent.map((frame) => ({ ...frame })), [{ type: 'snooze-clear', sessionId: 's1' }]);
+  v.view.update(liveGraph([{ ...a, state: 'resolved', resolvedReason: 'status-cleared' }, b], sessions));
+  assert.equal(v.view.selectedId, b.id);
+  assert.equal(v.window.localStorage.getItem('cm-session-view'), raw);
+  assert.equal(hostSent.length, 1, 'the next automatic preview is not unsnoozed');
+  assert.equal(JSON.parse(v.window.localStorage.getItem('wrangler.acknowledged')).s2, undefined);
+  v.view.select(b.id);
+  assert.deepEqual(views, ['terminal', 'terminal']);
+  v.view.unmount();
+  assert.equal(v.window.localStorage.getItem('cm-session-view'), raw);
+});
+
+test('manual Open session commits its existing permanent Terminal choice after an automatic embed', () => {
+  const v = mountView({ twoPanes: () => true });
+  const s = statusItem();
+  v.window.localStorage.setItem('cm-session-view', JSON.stringify({ s1: 'chat' }));
+  v.view.update(liveGraph([s]));
+  v.view.select(s.id);
+  v.q('.ibx-open-session').click();
+  v.view.unmount();
+  assert.deepEqual(JSON.parse(v.window.localStorage.getItem('cm-session-view')), { s1: 'terminal' });
+});
+
+test('pagehide restores a temporary preference and pageshow can remount the explicit detail', () => {
+  const v = mountView({ twoPanes: () => true });
+  const s = statusItem();
+  const raw = '{ "s1": "chat" }';
+  v.window.localStorage.setItem('cm-session-view', raw);
+  v.view.update(liveGraph([s]));
+  v.view.select(s.id);
+  v.window.dispatchEvent(new v.window.Event('pagehide'));
+  assert.equal(v.window.localStorage.getItem('cm-session-view'), raw);
+  assert.equal(v.mounts[0].unmounted, true);
+  v.view.update(liveGraph([s]));
+  assert.equal(v.mounts.length, 1);
+  v.window.dispatchEvent(new v.window.Event('pageshow'));
+  assert.equal(v.mounts.length, 2);
+  v.view.unmount();
+  v.window.dispatchEvent(new v.window.Event('pageshow'));
+  assert.equal(v.mounts.length, 2);
+  assert.equal(v.window.localStorage.getItem('cm-session-view'), raw);
 });
