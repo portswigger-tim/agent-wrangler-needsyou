@@ -147,7 +147,9 @@ Nothing lands on `main` without passing the gate. It runs in two places:
 and no bypass. Renaming a CI job means updating the ruleset's required checks too.
 
 Every CI job starts with `safer-runner-action`, which limits egress to the hostnames listed in
-its `allowed-domains`. A new download in CI needs its host added there. Actions and hook revs
+its `allowed-domains`. A new download in CI needs its host added there. Its `http-filter` makes every
+non-platform host read-only (`GET`/`HEAD`, plus git fetch's `POST` to `git-upload-pack`), so
+a step can't publish or push; add a new host there too, and keep it read-only. Actions and hook revs
 are pinned to commit SHAs (`pre-commit autoupdate --freeze` bumps the hooks).
 
 Set it up once per clone (each worktree shares the clone's hooks):
