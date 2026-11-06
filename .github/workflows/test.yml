@@ -94,11 +94,13 @@ jobs:
       - uses: portswigger-tim/safer-runner-action@d9772c3c7c5c0f8cd6cb7123e138120b11c12371 # v2.2.1
         with:
           mode: enforce
+          # Comments go here, never inside the block below: the action reads
+          # every word in it as a domain.
+          # gitleaks is a Go hook: pre-commit builds it from module downloads.
           allowed-domains: |
             registry.npmjs.org
             pypi.org
             files.pythonhosted.org
-            # gitleaks is a Go hook: pre-commit builds it from module downloads.
             proxy.golang.org
             storage.googleapis.com
           # Read-only: installs and clones yes, publishes and pushes no. git
@@ -158,10 +160,11 @@ jobs:
       - uses: portswigger-tim/safer-runner-action@d9772c3c7c5c0f8cd6cb7123e138120b11c12371 # v2.2.1
         with:
           mode: enforce
+          # azure.archive.ubuntu.com is the runner's apt mirror, for tmux. Its
+          # other apt sources (packages.microsoft.com, esm) stay blocked; apt
+          # only warns.
           allowed-domains: |
             registry.npmjs.org
-            # The runner's apt mirror, for tmux. Its other apt sources
-            # (packages.microsoft.com, esm) stay blocked; apt only warns.
             azure.archive.ubuntu.com
           # Read-only: installs and clones yes, publishes and pushes no. git
           # fetches are a POST to git-upload-pack; pushes (git-receive-pack) fall
