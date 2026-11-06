@@ -74,7 +74,7 @@ interface Item {
   title: string;            // 1..120 chars, single line
   body: string;             // markdown, 0..8000 chars
   options: Option[];        // 0..6; agent items only
-  allowFreeText: boolean;   // forced true when options is empty
+  allowFreeText: boolean;   // always true after creation or normalization, including saved false values
   blocking: boolean;        // agent: default true; status: true
   urgency: 'normal' | 'high';
   dedupeKey: string;        // agent: `agent:<sid>:<key or id>`; status: `status:<sid>:<episode>`
@@ -96,8 +96,8 @@ interface Item {
 }
 ```
 
-- **Unread:** `state === 'open' && readAt === null`. It only decides the row dot (toasts were removed in 0.1.1, F14),
-  never the order or the badge.
+- **Unread:** `state === 'open' && readAt === null`. It only decides the row dot,
+  never toast notifications, the order or the badge.
 - **Needs action:** `state === 'open'`, or an `answered` item whose delivery `failed`.
 - **Validation:** `validateAgentRequest(args) -> { ok, value | error }` and `normaliseItem(raw)`
   enforce every limit, and nowhere else does.
@@ -133,6 +133,13 @@ class InboxStore {
 }
 ```
 
+- **Answers:** every agent request accepts standalone nonempty `text` instead of an option,
+  or an optional note alongside a valid selected option. `allow_free_text` is accepted and
+  boolean-validated for compatibility, but deprecated and ignored. New and normalized metadata
+  have `allowFreeText: true`; existing saved `false` values do not restrict text replies.
+  Invalid option ids are rejected even with text. Text is trimmed, blank notes become `null`,
+  and non-blank text is limited to 4000 characters after trimming. An answer without a valid
+  option or nonempty text is rejected.
 - **Caps:**
   - 500 items in total; `create` first prunes the oldest resolved items, and throws if every item
     is open.
@@ -212,6 +219,7 @@ peer message inviting a `send_message` reply to an address that isn't a session.
 | `includeTransientApiErrors` | toggle | `false` | WS-3 |
 | `maxOpenPerSession` | number, 1–20 | `5` | WS-1 store / WS-2 tool |
 | `retentionDays` | number, 1–90 | `7` | WS-5 |
+| `toastNotifications` | toggle | `false` | WS-4 client |
 
 ## 8. Who may ask the human (`server/can-ask.js`, WS-2)
 

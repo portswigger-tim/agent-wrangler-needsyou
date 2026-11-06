@@ -31,6 +31,14 @@ The non-obvious decisions behind `server/tools/`, `server/answer.js`,
 
 ## Answers
 
+- Every agent request accepts standalone nonempty text instead of a choice,
+  or an optional note alongside a valid selected option. `allow_free_text` is
+  a deprecated, ignored compatibility parameter; supplied values must still
+  be boolean. New and loaded items normalize `allowFreeText` to `true`, so
+  saved requests with `false` also accept text. Invalid option ids are rejected
+  even with text, as are answers over 4000 characters or without a choice or
+  nonempty text. Text is trimmed and blank notes become `null`.
+
 - **Answers go back with `host.deliver`, not mail.** Extension mail is sent as
   `ext:needsyou` and framed as an untrusted peer message that invites a
   `send_message` reply to an address that isn't a session.

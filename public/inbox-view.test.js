@@ -349,7 +349,7 @@ test('the embedded terminal is unmounted when the selection changes and on unmou
 
 test('an open agent item: options, a note box, Send only once valid, the note rides with the choice', () => {
   const v = mountView();
-  const d = item({ options: [{ id: 'a', label: 'Rebase', description: 'Keep history linear' }, { id: 'b', label: 'Merge' }], allowFreeText: true });
+  const d = item({ options: [{ id: 'a', label: 'Rebase', description: 'Keep history linear' }, { id: 'b', label: 'Merge' }], allowFreeText: false });
   v.view.update(graphOf([d]));
   v.view.select(d.id);
   const opts = [...v.el.querySelectorAll('.ibx-option')];
@@ -366,6 +366,63 @@ test('an open agent item: options, a note box, Send only once valid, the note ri
   assert.deepEqual(v.sent.at(-1), { type: 'inbox-answer', id: d.id, optionId: 'b', text: 'because' });
   assert.equal(v.q('.ibx-send').disabled, true, 'disabled while sending');
   assert.ok([...v.el.querySelectorAll('.ibx-option')].every((b) => b.disabled));
+});
+
+test('clearing a choice preserves drafts through ticks and re-renders for text-only keyboard replies', () => {
+  for (const modifier of ['ctrlKey', 'metaKey']) {
+    const v = mountView();
+    const d = item({ options: [{ id: 'a', label: 'A' }], allowFreeText: false });
+    v.view.update(graphOf([d]));
+    v.view.select(d.id);
+    const ta = v.q('.ibx-text');
+    assert.ok(ta, 'fixed choices offer an optional note');
+    assert.equal(text(v.q('.ibx-text-label')), 'Your answer, or a note with your choice');
+    assert.equal(ta.maxLength, 4000);
+    assert.match(text(v.q('.ibx-hint')), /Enter sends/);
+    ta.value = ' after lunch ';
+    ta.dispatchEvent(new v.window.Event('input', { bubbles: true }));
+    ta.focus();
+    assert.equal(v.q('.ibx-send').disabled, false);
+    assert.equal(v.sent.filter((f) => f.type === 'inbox-answer').length, 0);
+    v.q('.ibx-option').click();
+    const chosenField = v.q('.ibx-text');
+    v.view.update(graphOf([{ ...d, readAt: 2 }]));
+    assert.ok(v.q('.ibx-text') === chosenField, 'unchanged tick keeps the field');
+    v.view.update(graphOf([{ ...d, body: 'More context', updatedAt: 2 }]));
+    assert.equal(v.q('.ibx-text').value, ' after lunch ');
+    assert.equal(v.q('.ibx-option').getAttribute('aria-checked'), 'true');
+    assert.equal(v.q('.ibx-send').disabled, false);
+    const clear = v.q('.ibx-clear-choice');
+    assert.equal(text(clear), 'Use text only');
+    clear.click();
+    assert.equal(v.q('.ibx-option').getAttribute('aria-checked'), 'false');
+    assert.equal(v.q('.ibx-text').value, ' after lunch ');
+    assert.equal(v.document.activeElement, v.q('.ibx-text'));
+    const enter = v.press('Enter');
+    assert.equal(enter.defaultPrevented, false, 'plain Enter stays in the note');
+    assert.equal(v.sent.filter((f) => f.type === 'inbox-answer').length, 0);
+    v.press('Enter', { [modifier]: true });
+    assert.deepEqual(v.sent.at(-1), { type: 'inbox-answer', id: d.id, text: 'after lunch' });
+    assert.equal(v.q('.ibx-text').disabled, true);
+  }
+});
+
+test('removing choices clears the stale selection and keeps the note as a free-text answer', () => {
+  const v = mountView();
+  const d = item({ kind: 'question', options: [{ id: 'a', label: 'A' }], allowFreeText: false });
+  v.view.update(graphOf([d]));
+  v.view.select(d.id);
+  v.q('.ibx-option').click();
+  const ta = v.q('.ibx-text');
+  ta.value = 'another approach';
+  ta.dispatchEvent(new v.window.Event('input', { bubbles: true }));
+  v.view.update(graphOf([{ ...d, options: [], allowFreeText: true, updatedAt: 2 }]));
+  assert.equal(v.q('.ibx-option'), null);
+  assert.equal(v.q('.ibx-text').value, 'another approach');
+  assert.equal(v.q('.ibx-send').disabled, false);
+  v.q('.ibx-text').focus();
+  v.press('Enter', { ctrlKey: true });
+  assert.deepEqual(v.sent.at(-1), { type: 'inbox-answer', id: d.id, text: 'another approach' });
 });
 
 test('a free-text item sends on Cmd/Ctrl+Enter', () => {
@@ -824,7 +881,7 @@ test('the answer box has a visible label', () => {
   assert.equal(text(label), 'Your answer');
   assert.equal(label.htmlFor, v.q('.ibx-text').id);
   v.view.select(withOpts.id);
-  assert.equal(text(v.q('.ibx-text-label')), 'Add a note (optional)');
+  assert.equal(text(v.q('.ibx-text-label')), 'Your answer, or a note with your choice');
 });
 
 test('an action has a main Done button that answers "done", with the note', () => {
@@ -876,6 +933,26 @@ test('the session link of a blocked item and Show terminal here both ask for the
   v.window.localStorage.removeItem('cm-session-view');
   v.q('.ibx-d-session').click();
   assert.deepEqual(JSON.parse(v.window.localStorage.getItem('cm-session-view')), { [s.sessionId]: 'terminal' });
+});
+
+test('all agent kinds offer standalone text despite old false metadata', () => {
+  for (const kind of ['decision', 'approval', 'question', 'action']) {
+    const v = mountView();
+    const d = item({ kind, options: [{ id: 'a', label: 'A' }], allowFreeText: false });
+    v.view.update(graphOf([d]));
+    v.view.select(d.id);
+    const ta = v.q('.ibx-text');
+    for (const value of ['  ', 'x'.repeat(4001)]) {
+      ta.value = value;
+      ta.dispatchEvent(new v.window.Event('input', { bubbles: true }));
+      assert.equal(v.q('.ibx-send').disabled, true);
+    }
+    ta.value = 'x'.repeat(4000);
+    ta.dispatchEvent(new v.window.Event('input', { bubbles: true }));
+    assert.equal(v.q('.ibx-send').disabled, false);
+    v.q('.ibx-send').click();
+    assert.deepEqual(v.sent.at(-1), { type: 'inbox-answer', id: d.id, text: 'x'.repeat(4000) });
+  }
 });
 
 const liveGraph = (items, core = [...new Set(items.map((i) => i.sessionId))].map((sessionId) => ({ sessionId, managed: true }))) => graphOf(items, { core });

@@ -7,21 +7,25 @@ import { item, statusItem, failedItem, graphOf } from '../test/fixtures/inbox.js
 // The module the wrangler imports from /ext/needsyou/index.js, registered the
 // way slots.js does it: a registrar with `register` and `api`, then mount and
 // update(el, session, graph) per host.
-function loadClient() {
+function loadClient(initialSettings = {}) {
   const window = new Window({ url: 'http://localhost:7777/' });
   const { document } = window;
   const observed = [];
   const navigated = [];
   const sent = [];
   const contributions = {};
+  const notifications = [];
+  const withdrawn = [];
+  const settingsListeners = [];
+  let settings = initialSettings;
   const api = {
     send: (f) => sent.push(f),
     openSession() {},
-    settings: () => ({}),
+    settings: Object.assign(() => settings, { onChange: (fn) => settingsListeners.push(fn) }),
     ui: {
       markdownPreview: (md) => md,
-      notify() { throw new Error('no toasts (F14)'); },
-      withdraw() { throw new Error('no toasts (F14)'); },
+      notify: (opts) => new Promise((resolve, reject) => notifications.push({ ...opts, resolve, reject })),
+      withdraw: (id) => withdrawn.push(id),
     },
   };
   let observerStarted = 0;
@@ -46,7 +50,15 @@ function loadClient() {
     contributions['card.pill'].mount(el, api);
     return { el, session: { sessionId } };
   };
-  return { window, document, api, observed, navigated, sent, contributions, viewEl, pillEl, observerStarted: () => observerStarted };
+  return {
+    window, document, api, observed, navigated, sent, contributions, viewEl, pillEl, notifications, withdrawn,
+    observerStarted: () => observerStarted,
+    update: (graph) => contributions.view.update(viewEl, null, graph),
+    setSettings(values, { notify = true } = {}) {
+      settings = values;
+      if (notify) for (const fn of settingsListeners) fn(values);
+    },
+  };
 }
 
 test('registers the view, the card pill and the card action', () => {
@@ -69,11 +81,173 @@ test('the badge is graph.inbox.open', () => {
   assert.equal(c.contributions.view.badge({}), 0);
 });
 
-test('no toasts: new blocked and blocking items never call api.ui.notify', () => {
+test('toasts require explicit opt-in and ignore the historical setting', () => {
+  for (const settings of [{}, { notifyToasts: true }, { toastNotifications: false }, { toastNotifications: 'true' }, { toastNotifications: 1 }]) {
+    const c = loadClient(settings);
+    c.update(graphOf([]));
+    c.update(graphOf([statusItem(), item({ blocking: true, urgency: 'high' })]));
+    c.update(graphOf([]));
+    assert.deepEqual(c.notifications, []);
+    assert.deepEqual(c.withdrawn, []);
+  }
+});
+
+test('the first valid inbox snapshot is silent, including after a reload', () => {
+  const existing = item();
+  for (let reload = 0; reload < 2; reload++) {
+    const c = loadClient({ toastNotifications: true });
+    c.update({ sessions: [] });
+    c.update(graphOf([existing]));
+    c.update(graphOf([existing]));
+    assert.equal(c.notifications.length, 0);
+    c.update(graphOf([existing, item()]));
+    assert.equal(c.notifications.length, 1);
+  }
+});
+
+test('new open agent and passive items notify with session context and a View request action', () => {
+  const c = loadClient({ toastNotifications: true });
+  const agent = item({ title: 'Pick a release', blocking: false });
+  const status = statusItem({ title: 'Confirm folder trust' });
+  c.update(graphOf([]));
+  c.update(graphOf([agent, status, failedItem(), item({ state: 'resolved' }), item({ state: 'answered' })]));
+  assert.deepEqual(c.notifications.map(({ title, body, actions }) => ({ title, body, actions })), [
+    { title: 'Pick a release', body: 'Worker · Auth', actions: [{ id: 'view', label: 'View request', primary: true }] },
+    { title: 'Confirm folder trust', body: 'Worker · Auth', actions: [{ id: 'view', label: 'View request', primary: true }] },
+  ]);
+  assert.equal(new Set(c.notifications.map((n) => n.id)).size, 2);
+});
+
+test('view, card, repeated and reconnect snapshots never repeat a toast or a restatement', () => {
+  const c = loadClient({ toastNotifications: true });
+  const p = c.pillEl('s1');
+  const request = item();
+  c.update(graphOf([]));
+  const graph = graphOf([request]);
+  c.contributions['card.pill'].update(p.el, p.session, graph);
+  c.update(graph);
+  c.contributions['card.pill'].update(p.el, p.session, structuredClone(graph));
+  c.update(graphOf([{ ...request, title: 'Restated', readAt: 3000 }]));
+  assert.equal(c.notifications.length, 1);
+});
+
+test('enabling toasts never replays items seen while disabled or closed items that reopen', () => {
   const c = loadClient();
-  c.contributions.view.update(c.viewEl, null, graphOf([]));
-  c.contributions.view.update(c.viewEl, null, graphOf([statusItem(), item({ blocking: true, urgency: 'high' })]));
-  c.contributions.view.update(c.viewEl, null, graphOf([]));
+  const existing = item();
+  const later = item();
+  c.update(graphOf([]));
+  c.update(graphOf([existing, { ...later, state: 'resolved' }]));
+  c.setSettings({ toastNotifications: true });
+  c.update(graphOf([existing, later]));
+  assert.equal(c.notifications.length, 0);
+  c.update(graphOf([existing, later, item()]));
+  assert.equal(c.notifications.length, 1);
+});
+
+test('closing a toast leaves requests, read state and navigation alone', async () => {
+  const c = loadClient({ toastNotifications: true });
+  const request = item();
+  c.update(graphOf([]));
+  c.update(graphOf([request]));
+  const sent = [...c.sent];
+  c.notifications[0].resolve(null);
+  await Promise.resolve();
+  assert.deepEqual(c.sent, sent);
+  assert.deepEqual(c.navigated, []);
+  assert.equal(request.state, 'open');
+  assert.equal(request.readAt, null);
+  c.update(graphOf([]));
+  assert.deepEqual(c.withdrawn, []);
+});
+
+test('View request navigates and selects the matching item', async () => {
+  const c = loadClient({ toastNotifications: true });
+  const first = item();
+  const second = item();
+  c.update(graphOf([first]));
+  c.update(graphOf([first, second]));
+  c.notifications[0].resolve('view');
+  await Promise.resolve();
+  assert.deepEqual(c.navigated, ['#view=ext:needsyou:inbox']);
+  assert.equal(c.viewEl.querySelector('.ibx-row.ibx-selected').dataset.id, second.id);
+  assert.ok(c.sent.every((f) => f.type === 'inbox-mark-read'));
+});
+
+test('View request waits for a view to mount when the toast came from a card', async () => {
+  const c = loadClient({ toastNotifications: true });
+  c.contributions.view.unmount();
+  const p = c.pillEl('s1');
+  const request = item();
+  c.contributions['card.pill'].update(p.el, p.session, graphOf([]));
+  c.contributions['card.pill'].update(p.el, p.session, graphOf([request]));
+  c.notifications[0].resolve('view');
+  await Promise.resolve();
+  assert.deepEqual(c.navigated, ['#view=ext:needsyou:inbox']);
+  c.contributions.view.mount(c.viewEl, c.api);
+  assert.equal(c.viewEl.querySelector('.ibx-row.ibx-selected').dataset.id, request.id);
+});
+
+test('resolved, sending and missing items withdraw outstanding toasts and ignore stale actions', async () => {
+  for (const itemsAfter of [[], [{ state: 'resolved' }], [{ state: 'answered', answer: { delivery: 'pending' } }]]) {
+    const c = loadClient({ toastNotifications: true });
+    const request = item();
+    c.update(graphOf([]));
+    c.update(graphOf([request]));
+    c.update(graphOf(itemsAfter.map((over) => ({ ...request, ...over }))));
+    assert.deepEqual(c.withdrawn, [c.notifications[0].id]);
+    c.notifications[0].resolve('view');
+    await Promise.resolve();
+    assert.deepEqual(c.navigated, []);
+  }
+});
+
+test('a settings change callback withdraws toasts and reenabling does not replay requests', async () => {
+  const c = loadClient({ toastNotifications: true });
+  const request = item();
+  c.update(graphOf([]));
+  c.update(graphOf([request]));
+  c.setSettings({ toastNotifications: false });
+  assert.deepEqual(c.withdrawn, [c.notifications[0].id]);
+  c.notifications[0].resolve('view');
+  await Promise.resolve();
+  assert.deepEqual(c.navigated, []);
+  const whileOff = item();
+  c.update(graphOf([request, whileOff]));
+  c.setSettings({ toastNotifications: true });
+  c.update(graphOf([request, whileOff]));
+  assert.equal(c.notifications.length, 1);
+  c.update(graphOf([request, whileOff, item()]));
+  assert.equal(c.notifications.length, 2);
+});
+
+test('disabling without a settings callback withdraws toasts on the next graph', async () => {
+  const c = loadClient({ toastNotifications: true });
+  const request = item();
+  c.update(graphOf([]));
+  c.update(graphOf([request]));
+  c.setSettings({ toastNotifications: false }, { notify: false });
+  assert.deepEqual(c.withdrawn, []);
+  c.update(graphOf([request]));
+  assert.deepEqual(c.withdrawn, [request.id]);
+  c.notifications[0].resolve('view');
+  await Promise.resolve();
+  assert.deepEqual(c.navigated, []);
+  assert.deepEqual(c.sent, []);
+});
+
+test('a failed notification is contained and never retried on the next graph', async () => {
+  const c = loadClient({ toastNotifications: true });
+  const request = item();
+  c.update(graphOf([]));
+  c.update(graphOf([request]));
+  c.notifications[0].reject(new Error('notification unavailable'));
+  await Promise.resolve();
+  await Promise.resolve();
+  c.update(graphOf([request]));
+  c.update(graphOf([]));
+  assert.equal(c.notifications.length, 1);
+  assert.deepEqual(c.navigated, []);
+  assert.deepEqual(c.withdrawn, []);
 });
 
 test('each graph reaches the observer once, however many hosts update with it', () => {

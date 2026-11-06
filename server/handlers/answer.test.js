@@ -1,8 +1,9 @@
+import fs from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { inboxHandlers } from './index.js';
 import { MAX_DELIVERY_ATTEMPTS } from './answer.js';
-import { fakeHost, seq, clock } from '../test-helpers.js';
+import { fakeHost, seq, clock, tempStoreFile } from '../test-helpers.js';
 
 const handler = (type) => inboxHandlers.find((h) => h.type === type).handler;
 const answer = handler('inbox-answer');
@@ -35,6 +36,29 @@ test('inbox-answer with an option delivers it and resolves the item', async () =
   assert.equal(calls.rebuild, 1);
 });
 
+test('fixed-choice answers persist and deliver a note for every agent kind', async () => {
+  const file = tempStoreFile();
+  const { host, store, calls } = setup({ file });
+  const ids = [];
+  for (const kind of ['decision', 'approval', 'question', 'action']) {
+    const item = store.create({ source: 'agent', kind, sessionId: 's1', title: 'Pick', options: [{ id: 'a', label: 'A' }] });
+    ids.push(item.id);
+    assert.equal(item.allowFreeText, true);
+    await answer({ id: item.id, optionId: 'a', text: ' after lunch ' }, host);
+    const saved = store.get(item.id);
+    assert.equal(saved.state, 'resolved');
+    assert.equal(saved.answer.optionId, 'a');
+    assert.equal(saved.answer.text, 'after lunch');
+    assert.match(calls.deliver.at(-1).text, /\nChoice: A \(a\)\nNote: after lunch$/);
+  }
+  assert.equal(calls.rebuild, 4);
+  const reloaded = fakeHost({ file }).store;
+  for (const id of ids) {
+    assert.equal(reloaded.get(id).answer.optionId, 'a');
+    assert.equal(reloaded.get(id).answer.text, 'after lunch');
+  }
+});
+
 test('inbox-answer with free text, and with both when free text is allowed', async () => {
   const { host, store, calls, freeText } = setup();
   await answer({ id: freeText.id, text: 'eu-west-1' }, host);
@@ -49,8 +73,10 @@ test('inbox-answer with free text, and with both when free text is allowed', asy
 test('inbox-answer refuses invalid answers without delivering', async () => {
   const { host, store, calls, withOptions, freeText } = setup();
   const cases = [
-    [{ id: withOptions.id, optionId: 'nope' }, /not one of this request's options/],
-    [{ id: withOptions.id, text: 'free text' }, /not free text/],
+    [{ id: withOptions.id, optionId: 'nope', text: 'a note' }, /not one of this request's options/],
+    [{ id: withOptions.id, text: '  \n ' }, /choose an option/],
+    [{ id: withOptions.id, text: 'x'.repeat(4001) }, /at most 4000/],
+    [{ id: withOptions.id, optionId: 'a', text: 'x'.repeat(4001) }, /at most 4000/],
     [{ id: withOptions.id }, /choose an option/],
     [{ id: freeText.id }, /needs some text/],
     [{ id: freeText.id, text: '   ' }, /needs some text/],
@@ -134,4 +160,32 @@ test('inbox-set-can-ask validates its payload and the session', async () => {
   ]) await assert.rejects(setCanAsk(msg, host), re);
   assert.equal(store.canAskOverride('w1'), null);
   assert.equal(calls.rebuild, 0);
+});
+
+test('legacy false requests of every agent kind accept text through the handler and persist delivery', async () => {
+  const file = tempStoreFile();
+  const initial = fakeHost({ file, sessions: [{ sessionId: 's1' }], now: clock(), idGen: seq() });
+  const ids = ['decision', 'approval', 'question', 'action'].map((kind) => initial.store.create({
+    source: 'agent', kind, sessionId: 's1', title: 'Pick', options: [{ id: 'a', label: 'A' }], allowFreeText: false,
+  }).id);
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  for (const item of data.items) item.allowFreeText = false;
+  fs.writeFileSync(file, JSON.stringify(data));
+  const { host, store, calls } = fakeHost({ file, sessions: [{ sessionId: 's1' }] });
+  for (const id of ids) {
+    assert.equal(store.get(id).allowFreeText, true);
+    await answer({ id, text: ' another approach ' }, host);
+    const saved = store.get(id);
+    assert.equal(saved.state, 'resolved');
+    assert.equal(saved.answer.optionId, null);
+    assert.equal(saved.answer.text, 'another approach');
+    assert.match(calls.deliver.at(-1).text, /\nNote: another approach$/);
+    assert.doesNotMatch(calls.deliver.at(-1).text, /\nChoice:/);
+  }
+  const reloaded = fakeHost({ file }).store;
+  for (const id of ids) {
+    assert.equal(reloaded.get(id).answer.optionId, null);
+    assert.equal(reloaded.get(id).answer.text, 'another approach');
+    assert.equal(reloaded.get(id).answer.delivery, 'delivered');
+  }
 });

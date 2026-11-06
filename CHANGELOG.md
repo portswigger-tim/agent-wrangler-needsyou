@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.1.11
+
+### Added
+
+- **Text replies on every agent request.** Answer in your own words instead
+  of an offered option, or add an optional note to a selected choice.
+  **Use text only** clears a choice without losing your draft. Existing
+  requests also support text replies; `allow_free_text` is deprecated and
+  ignored, including when false.
 
 ### Changed
 
@@ -9,6 +17,15 @@
   you to open them. **Hide terminal** lasts for the current selection, and the
   automatic embed restores your saved tab when closed. Other statuses keep
   their manual terminal toggle.
+
+## 0.1.10
+
+### Added
+
+- **Optional toast notifications.** Enable **Toast notifications** to show new
+  requests in the board notification stack with a **View request** shortcut.
+  The setting is off by default. Existing requests are not replayed, and
+  closing a notification leaves its request unchanged.
 
 ## 0.1.9
 
