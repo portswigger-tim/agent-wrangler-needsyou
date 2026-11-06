@@ -35,7 +35,7 @@ jobs:
       # First, so its pre step locks down egress before any other step runs.
       - uses: portswigger-tim/safer-runner-action@d9772c3c7c5c0f8cd6cb7123e138120b11c12371 # v2.2.1
         with:
-          mode: analyze
+          mode: enforce
           allowed-domains: |
             registry.npmjs.org
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -78,11 +78,14 @@ jobs:
       # First, so its pre step locks down egress before any other step runs.
       - uses: portswigger-tim/safer-runner-action@d9772c3c7c5c0f8cd6cb7123e138120b11c12371 # v2.2.1
         with:
-          mode: analyze
+          mode: enforce
           allowed-domains: |
             registry.npmjs.org
             pypi.org
             files.pythonhosted.org
+            # gitleaks is a Go hook: pre-commit builds it from module downloads.
+            proxy.golang.org
+            storage.googleapis.com
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: needsyou
@@ -118,9 +121,12 @@ jobs:
       # First, so its pre step locks down egress before any other step runs.
       - uses: portswigger-tim/safer-runner-action@d9772c3c7c5c0f8cd6cb7123e138120b11c12371 # v2.2.1
         with:
-          mode: analyze
+          mode: enforce
           allowed-domains: |
             registry.npmjs.org
+            # The runner's apt mirror, for tmux. Its other apt sources
+            # (packages.microsoft.com, esm) stay blocked; apt only warns.
+            azure.archive.ubuntu.com
           # The wrangler won't boot without tmux, which the runner image lacks,
           # and apt-get needs sudo. Keeping it makes this job ADVISORY: egress
           # is still filtered, but a root step could lift the filter.
