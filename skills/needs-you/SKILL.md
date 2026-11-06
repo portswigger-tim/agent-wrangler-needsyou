@@ -116,7 +116,11 @@ Note: and tell it to commit often
 ```
 
 Treat it as the human's answer to that request id, and continue. The `Choice`
-or `Note` line is left out when the human gave none.
+or `Note` line is left out when the human gave none. A `Note` without a
+`Choice` is a standalone human response: follow the actual text. The absence
+of `Choice` alone signals neither approval nor rejection. Do not infer a
+default option or approval from it; explicit text can approve, decline or
+propose another approach.
 
 ## If you get the answer some other way
 
