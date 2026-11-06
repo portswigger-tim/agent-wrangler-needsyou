@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Group the Needs you list by task or visible type, and sort by type or time
+  waiting in either direction. Filter and presentation preferences are remembered
+  per browser across reloads and Agent Wrangler restarts. Keyboard navigation
+  follows the displayed order.
+
 ## 0.1.11
 
 ### Added
