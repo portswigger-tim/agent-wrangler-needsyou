@@ -82,8 +82,8 @@ links to the session. You can also select **Show terminal here** to open the
 session's terminal in the list.
 
 Every agent request lets you answer in your own words instead of selecting
-an offered option. You can also add an optional note to your choice. Select
-**Clear** to clear a choice while keeping your draft.
+an offered option. You can also add an optional note to your choice. Click
+the selected option again to deselect it while keeping your draft.
 
 ## How to work through the list
 
