@@ -19,7 +19,7 @@ import { preferTerminal, wantsTerminal } from './inbox-session-view.js';
 import {
   queueOrder, closedOrder, closedAt, closedLabel, FILTERS, itemLabel, itemIconKey, isAlarm, isUrgent, guidanceFor,
   terminalText, resolvedLabel, waitingLabel, ageLabel, sessionMeta, sessionName, spawnedByLabel, inboxOf, isUnread,
-  isFailed, nextAfter, answerPayload, hasDone, donePayload, deliveryProblem,
+  isFailed, nextAfter, answerPayload, hasDone, donePayload, deliveryProblem, causeOf,
 } from './inbox-model.js';
 
 export { queueOrder } from './inbox-model.js';
@@ -120,7 +120,10 @@ export function createInboxView(el, api, {
   let wantFocus = false;
   let confirming = null;
   let detailKey = null;
-  let terminal = null; // { id, handle }
+  let terminal = null; // { id, sessionId, handle }
+  let terminalPreference = null;
+  let terminalAttempted = false;
+  let disposed = false;
   const readSent = new Set();
   const drafts = new Map();
   const choices = new Map();
@@ -132,7 +135,7 @@ export function createInboxView(el, api, {
   // The list showing, which is also what j/k walk.
   const shown = () => (filter === 'closed' ? closed : filter === 'all' ? [...order, ...closed] : order);
   const isShown = (id) => shown().some((i) => i.id === id);
-  const visible = () => el.isConnected && !el.closest('.hidden');
+  const visible = () => !disposed && root.isConnected && !el.closest('.hidden, [hidden]');
 
   // ── queue rows ──────────────────────────────────────────────────────────
   function createRow() {
@@ -214,6 +217,7 @@ export function createInboxView(el, api, {
   function renderDetail() {
     const item = selected();
     setClass(root, ['ibx-root', detailOpen && item ? 'ibx-detail-open' : ''].filter(Boolean).join(' '));
+    syncTerminal(item);
     const key = renderDetailKey(item);
     if (key === detailKey) {
       const age = detailEl.querySelector('.ibx-d-age');
@@ -531,22 +535,52 @@ export function createInboxView(el, api, {
     api.openSession?.(item.sessionId);
   }
 
-  function toggleTerminal(item) {
-    if (terminal?.id === item.id) closeTerminal();
-    else {
-      closeTerminal();
-      terminalEl.hidden = false;
-      preferTerminal(item.sessionId, storage);
+  function mountTerminal(item, { automatic = false } = {}) {
+    if (typeof api.mountSession !== 'function') return;
+    terminalAttempted = true;
+    terminalEl.hidden = false;
+    preferTerminal(item.sessionId, storage);
+    const active = doc.activeElement;
+    try {
       const handle = api.mountSession(terminalEl, item.sessionId);
-      if (handle) terminal = { id: item.id, handle };
-      else terminalEl.hidden = true;
+      if (handle) terminal = { id: item.id, sessionId: item.sessionId, handle, automatic };
+    } catch { /* Open session remains available. */ }
+    if (!terminal) closeTerminal();
+    if (automatic && doc.activeElement !== active) {
+      if (active && active !== doc.body && active.isConnected) active.focus({ preventScroll: true });
+      else doc.activeElement?.blur?.();
+    }
+  }
+
+  function syncTerminal(item) {
+    const showDetail = visible() && (isTwoPanes() || detailOpen);
+    const openStatus = wantsTerminal(item);
+    const auto = terminalPreference === null && causeOf(item) === 'permission';
+    const wanted = openStatus && (terminalPreference === true || auto);
+    const live = graph?.sessions?.some((s) => s.sessionId === item?.sessionId && s.managed === true && !s.archived);
+    if (terminal && (!showDetail || !wanted || (!live && terminal.automatic) || terminal.sessionId !== item.sessionId)) {
+      closeTerminal();
+      terminalAttempted = false;
+    }
+    if (showDetail && wanted && live && !terminal && !terminalAttempted) mountTerminal(item, { automatic: true });
+  }
+
+  function toggleTerminal(item) {
+    if (terminal?.id === item.id) {
+      terminalPreference = false;
+      closeTerminal();
+    } else {
+      terminalPreference = true;
+      closeTerminal();
+      if (visible() && (isTwoPanes() || detailOpen)) mountTerminal(item);
     }
     renderDetail();
   }
 
   function closeTerminal() {
-    if (!terminal) return;
-    try { terminal.handle.unmount(); } catch { /* the board reports its own */ }
+    if (terminal) {
+      try { terminal.handle.unmount(); } catch { /* the board reports its own */ }
+    }
     terminal = null;
     terminalEl.hidden = true;
     terminalEl.replaceChildren();
@@ -587,7 +621,9 @@ export function createInboxView(el, api, {
   // ── selection ───────────────────────────────────────────────────────────
   function setSelected(id) {
     if (id === selectedId) return;
-    if (terminal && terminal.id !== id) closeTerminal();
+    closeTerminal();
+    terminalPreference = null;
+    terminalAttempted = false;
     confirming = null;
     selectedId = id;
     autoPicked = false;
@@ -730,15 +766,19 @@ export function createInboxView(el, api, {
   let watcher = null;
   if (host && Observer) {
     watcher = new Observer(() => {
-      if (!visible()) return;
-      if (!selectedId && shown().length) render();
+      if (!visible()) { renderDetail(); return; }
+      render();
       markRead();
       if (wantFocus) { wantFocus = false; focusPrimary(); return; }
       const active = doc.activeElement;
       if (!active || active === doc.body || active.closest?.('.layouts')) root.focus({ preventScroll: true });
     });
-    watcher.observe(host, { attributes: true, attributeFilter: ['class'] });
+    watcher.observe(host, { attributes: true, attributeFilter: ['class', 'hidden'] });
   }
+
+  const Resize = doc.defaultView?.ResizeObserver;
+  const resizeWatcher = Resize ? new Resize(() => renderDetail()) : null;
+  resizeWatcher?.observe(root);
 
   // ── render ──────────────────────────────────────────────────────────────
   function render() {
@@ -799,7 +839,9 @@ export function createInboxView(el, api, {
   }
 
   function unmount() {
+    disposed = true;
     watcher?.disconnect();
+    resizeWatcher?.disconnect();
     for (const s of sending.values()) cancel(s.timer);
     sending.clear();
     closeTerminal();

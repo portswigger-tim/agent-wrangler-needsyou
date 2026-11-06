@@ -110,7 +110,24 @@ control router (a refused answer, for example) are the board's own and stay.
 
 - The narrow layout uses a container query on `.ibx-root` (< 900 px), not a
   media query, so it follows the view's width.
-- Status items have a **Show terminal here** toggle (`api.mountSession`).
+- Selecting an open permission-status item automatically embeds its live session's
+  terminal (`api.mountSession`), including a desktop auto-pick. It uses the
+  semantic `status.cause === 'permission'`, regardless of provider or title.
+  Other statuses keep the **Show terminal here** toggle; agent approval requests
+  and read-only items do not automatically embed.
+- Only a visible detail mounts: the phone list, a hidden view and an unmounted
+  view never acquire the host's single embedded panel. Changing selection,
+  closing detail, resolving/removing the item or hiding the view releases it.
+  Returning to a visible detail can mount again. **Hide terminal** persists
+  through graph updates and view changes for the same selection; a new selection
+  gets the default again. Graph restatements do not remount or move focus.
+- Automatic mounts require the session to be present, managed and not archived
+  in the core graph: the host resumes dormant sessions when mounting them.
+  The view restores keyboard focus after an automatic mount because the host
+  focuses its terminal. It sends no approval or terminal input.
+- Missing, null or throwing embed support leaves **Open session** available.
+  A failed automatic mount is not retried by graph or visibility updates for
+  that selection; **Show terminal here** allows an explicit retry.
 - Colour comes only from the board's CSS variables, so both themes work.
 
 ## Filters and the read-only view

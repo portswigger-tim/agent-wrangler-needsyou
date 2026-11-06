@@ -877,3 +877,293 @@ test('the session link of a blocked item and Show terminal here both ask for the
   v.q('.ibx-d-session').click();
   assert.deepEqual(JSON.parse(v.window.localStorage.getItem('cm-session-view')), { [s.sessionId]: 'terminal' });
 });
+
+const liveGraph = (items, core = [...new Set(items.map((i) => i.sessionId))].map((sessionId) => ({ sessionId, managed: true }))) => graphOf(items, { core });
+const settleVisibility = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+test('a visible desktop approval auto-pick mounts once on Terminal without taking focus or sending input', () => {
+  const v = mountView({ twoPanes: () => true });
+  const s = statusItem({ title: 'Tool permission', status: { cause: 'permission', waitingReason: 'permission' } });
+  const outside = v.document.createElement('input');
+  v.document.body.append(outside);
+  outside.focus();
+  v.view.update(liveGraph([s]));
+  assert.equal(v.view.selectedId, s.id);
+  assert.equal(v.mounts.length, 1);
+  assert.equal(v.mounts[0].sid, s.sessionId);
+  assert.equal(v.mounts[0].target, v.q('.ibx-terminal'));
+  assert.equal(v.q('.ibx-terminal').hidden, false);
+  assert.equal(text(v.q('.ibx-terminal-toggle')), 'Hide terminal');
+  assert.deepEqual(JSON.parse(v.window.localStorage.getItem('cm-session-view')), { s1: 'terminal' });
+  assert.equal(v.document.activeElement, outside);
+  assert.deepEqual(v.sent, []);
+  assert.deepEqual(v.opened, []);
+  v.view.update(liveGraph([{ ...s, updatedAt: 2000, body: 'Restated prompt' }]));
+  v.view.update(liveGraph([structuredClone(s)]));
+  assert.equal(v.mounts.length, 1, 'restatements and graph copies do not remount');
+  assert.equal(v.document.activeElement, outside);
+});
+
+test('automatic embedding restores focus even when the host mount focuses its terminal', () => {
+  let mountedInput;
+  const v = mountView({ twoPanes: () => true, api: { mountSession(target) {
+    mountedInput = target.ownerDocument.createElement('textarea');
+    target.append(mountedInput);
+    mountedInput.focus();
+    return { unmount() { mountedInput.remove(); } };
+  } } });
+  const outside = v.document.createElement('input');
+  v.document.body.append(outside);
+  outside.focus();
+  v.view.update(liveGraph([statusItem()]));
+  assert.ok(mountedInput, 'the host mounted');
+  assert.equal(v.document.activeElement, outside);
+});
+
+test('Hide persists through ticks and view changes for this selection; each new approval selection opens', async () => {
+  const v = mountView({ twoPanes: () => true });
+  const a = statusItem({ createdAt: 1 });
+  const b = statusItem({ createdAt: 2, sessionId: 's2' });
+  v.view.update(liveGraph([a, b]));
+  assert.equal(v.mounts.length, 1);
+  v.q('.ibx-terminal-toggle').click();
+  assert.equal(v.mounts[0].unmounted, true);
+  v.view.update(liveGraph([{ ...a, updatedAt: 3000 }, b]));
+  v.host.classList.add('hidden');
+  await settleVisibility();
+  v.host.classList.remove('hidden');
+  await settleVisibility();
+  assert.equal(v.mounts.length, 1);
+  assert.equal(text(v.q('.ibx-terminal-toggle')), 'Show terminal here');
+  v.view.select(b.id);
+  assert.equal(v.mounts.length, 2);
+  v.view.select(a.id);
+  assert.equal(v.mounts[1].unmounted, true);
+  assert.equal(v.mounts.length, 3);
+  v.view.unmount();
+  assert.equal(v.mounts[2].unmounted, true);
+  v.view.update(liveGraph([a, b]));
+  assert.equal(v.mounts.length, 3, 'unmounted view cannot reacquire the terminal');
+});
+
+test('hidden views never mount and release when hidden, then remount when visible', async () => {
+  const v = mountView({ twoPanes: () => true });
+  const s = statusItem();
+  v.host.classList.add('hidden');
+  v.view.update(liveGraph([s]));
+  v.view.select(s.id);
+  assert.equal(v.mounts.length, 0);
+  v.host.classList.remove('hidden');
+  await settleVisibility();
+  assert.equal(v.mounts.length, 1, 'visibility alone opens the selected detail');
+  v.host.classList.add('hidden');
+  await settleVisibility();
+  assert.equal(v.mounts[0].unmounted, true);
+  v.view.update(liveGraph([s]));
+  assert.equal(v.mounts.length, 1);
+  v.host.classList.remove('hidden');
+  await settleVisibility();
+  assert.equal(v.mounts.length, 2);
+});
+
+test('phone list navigation never mounts offscreen details; Back releases and reopening mounts', () => {
+  const v = mountView({ twoPanes: () => false });
+  const a = statusItem({ createdAt: 1 });
+  const b = statusItem({ createdAt: 2 });
+  v.view.update(liveGraph([a, b]));
+  v.press('j');
+  assert.equal(v.view.selectedId, a.id);
+  assert.equal(v.mounts.length, 0);
+  v.view.select(a.id);
+  assert.equal(v.mounts.length, 1);
+  v.q('.ibx-back').click();
+  assert.equal(v.mounts[0].unmounted, true);
+  v.view.update(liveGraph([a, b]));
+  assert.equal(v.mounts.length, 1);
+  v.view.select(a.id);
+  assert.equal(v.mounts.length, 2);
+});
+
+test('closing detail, resolving, disappearing and becoming dormant all release embeds', () => {
+  for (const change of ['close', 'resolved', 'missing', 'dormant', 'cause']) {
+    const v = mountView({ twoPanes: () => true });
+    const s = statusItem();
+    v.view.update(liveGraph([s]));
+    assert.equal(v.mounts.length, 1, change);
+    if (change === 'close') v.q('.ibx-close').click();
+    if (change === 'resolved') v.view.update(liveGraph([{ ...s, state: 'resolved', resolvedReason: 'status-cleared' }]));
+    if (change === 'missing') v.view.update(liveGraph([]));
+    if (change === 'dormant') v.view.update(liveGraph([s], [{ sessionId: s.sessionId, managed: false }]));
+    if (change === 'cause') v.view.update(liveGraph([{ ...s, status: { cause: 'question' } }]));
+    assert.equal(v.mounts[0].unmounted, true, change);
+    assert.equal(v.q('.ibx-terminal').hidden, true, change);
+    v.view.unmount();
+  }
+});
+
+test('non-permission statuses, agent approvals, closed and unavailable sessions do not auto-mount', () => {
+  const excluded = [
+    ...['question', 'trust', 'sign-in', 'other', undefined].map((cause) => statusItem({ title: 'Codex requires your approval', status: { cause } })),
+    item({ kind: 'approval', status: { cause: 'permission' } }),
+    statusItem({ state: 'resolved', resolvedReason: 'status-cleared' }),
+    statusItem({ state: 'answered', answer: { delivery: 'pending' } }),
+  ];
+  for (const s of excluded) {
+    const v = mountView({ twoPanes: () => true });
+    v.view.update(liveGraph([s]));
+    v.view.select(s.id);
+    assert.equal(v.mounts.length, 0, `${s.source} ${s.state} ${s.status?.cause}`);
+    v.view.unmount();
+  }
+  for (const core of [[], [{ sessionId: 's1', managed: false }], [{ sessionId: 's1', managed: true, archived: true }]]) {
+    const v = mountView({ twoPanes: () => true });
+    v.view.update(liveGraph([statusItem()], core));
+    assert.equal(v.mounts.length, 0, 'unavailable session is never resumed by viewing a prompt');
+  }
+});
+
+test('missing, null and throwing mount support preserve Open session without automatic retry storms', async () => {
+  for (const mode of ['missing', 'null', 'throw']) {
+    let attempts = 0;
+    const v = mountView({ twoPanes: () => true, api: { mountSession: mode === 'missing' ? undefined : () => {
+      attempts++;
+      if (mode === 'throw') throw new Error('Embedding unavailable');
+      return null;
+    } } });
+    const s = statusItem();
+    assert.doesNotThrow(() => v.view.update(liveGraph([s])));
+    v.view.update(liveGraph([s]));
+    v.view.select(s.id);
+    v.host.classList.add('hidden');
+    await settleVisibility();
+    v.host.classList.remove('hidden');
+    await settleVisibility();
+    assert.equal(attempts, mode === 'missing' ? 0 : 1);
+    assert.equal(v.q('.ibx-terminal').hidden, true);
+    v.q('.ibx-open-session').click();
+    assert.deepEqual(v.opened, [s.sessionId]);
+    if (mode !== 'missing') {
+      assert.equal(text(v.q('.ibx-terminal-toggle')), 'Show terminal here');
+      v.q('.ibx-terminal-toggle').click();
+      assert.equal(attempts, 2, 'an explicit retry is allowed');
+    }
+    v.view.unmount();
+  }
+});
+
+test('a pending approval selection mounts only after arrival and visibility', async () => {
+  const v = mountView({ twoPanes: () => true });
+  const s = statusItem();
+  v.host.classList.add('hidden');
+  assert.equal(v.view.select(s.id, { focus: true }), false);
+  v.view.update(liveGraph([s]));
+  assert.equal(v.mounts.length, 0);
+  v.host.classList.remove('hidden');
+  await settleVisibility();
+  assert.equal(v.mounts.length, 1);
+  assert.equal(v.document.activeElement, v.q('.ibx-open-session'));
+  v.view.update(liveGraph([s]));
+  assert.equal(v.mounts.length, 1);
+});
+
+test('native hidden releases an approval and prevents graph ticks from remounting', async () => {
+  const v = mountView({ twoPanes: () => true });
+  const s = statusItem();
+  v.view.update(liveGraph([s]));
+  v.host.hidden = true;
+  await settleVisibility();
+  assert.equal(v.mounts[0].unmounted, true);
+  v.view.update(liveGraph([s]));
+  assert.equal(v.mounts.length, 1);
+  v.host.hidden = false;
+  await settleVisibility();
+  assert.equal(v.mounts.length, 2);
+});
+
+test('an approval auto-picked on desktop releases when a resize hides the detail on phone', () => {
+  let resize;
+  let disconnected = false;
+  let wide = true;
+  const v = mountView({ twoPanes: () => wide, beforeMount(window) {
+    window.ResizeObserver = class {
+      constructor(callback) { resize = callback; }
+      observe() {}
+      disconnect() { disconnected = true; }
+    };
+  } });
+  v.view.update(liveGraph([statusItem()]));
+  assert.equal(v.mounts.length, 1);
+  wide = false;
+  assert.equal(typeof resize, 'function');
+  resize();
+  assert.equal(v.mounts[0].unmounted, true);
+  assert.equal(v.q('.ibx-terminal').hidden, true);
+  wide = true;
+  resize();
+  assert.equal(v.mounts.length, 2);
+  v.view.unmount();
+  assert.equal(disconnected, true);
+});
+
+test('manual terminals for other statuses keep working, with no automatic default', () => {
+  const v = mountView({ twoPanes: () => true });
+  const s = statusItem({ status: { cause: 'question' } });
+  v.view.update(liveGraph([s]));
+  assert.equal(v.mounts.length, 0);
+  v.q('.ibx-terminal-toggle').click();
+  assert.equal(v.mounts.length, 1);
+  v.view.update(liveGraph([s]));
+  assert.equal(v.mounts.length, 1);
+  v.q('.ibx-terminal-toggle').click();
+  assert.equal(v.mounts[0].unmounted, true);
+  v.view.update(liveGraph([s]));
+  assert.equal(v.mounts.length, 1);
+});
+
+test('real host embed lends and releases its singleton without hidden-view takeover', { skip: !process.env.AW_REPO }, async () => {
+  const { pathToFileURL } = await import('node:url');
+  const { resolve } = await import('node:path');
+  const { createSessionEmbed } = await import(pathToFileURL(resolve(process.env.AW_REPO, 'public/session-embed.js')).href);
+  let embed;
+  const v = mountView({ twoPanes: () => true, api: { mountSession: (target, sid) => embed.mount(target, sid) } });
+  const home = v.document.createElement('div');
+  const sidebar = v.document.createElement('div');
+  const input = v.document.createElement('textarea');
+  sidebar.append(input);
+  home.append(sidebar);
+  v.document.body.append(home);
+  const shows = [];
+  const releases = [];
+  embed = createSessionEmbed({ document: v.document, parts: () => ({ sidebar }),
+    show(sid) { shows.push(sid); input.focus(); }, release(o) { releases.push(o.sessionId); } });
+  const outside = v.document.createElement('input');
+  v.document.body.append(outside);
+  outside.focus();
+  const a = statusItem({ sessionId: 's1', createdAt: 1 });
+  const b = statusItem({ sessionId: 's2', createdAt: 2 });
+  v.view.update(liveGraph([a, b]));
+  assert.ok(v.q('.ibx-terminal').contains(sidebar));
+  assert.equal(v.document.activeElement, outside);
+  v.view.update(liveGraph([a, b]));
+  assert.deepEqual(shows, ['s1']);
+  v.view.select(b.id);
+  assert.deepEqual(releases, ['s1']);
+  assert.deepEqual(shows, ['s1', 's2']);
+  v.host.classList.add('hidden');
+  await settleVisibility();
+  assert.equal(sidebar.parentElement, home);
+  assert.equal(embed.owner(), null);
+  const other = v.document.createElement('div');
+  v.document.body.append(other);
+  const otherHandle = embed.mount(other, 'other');
+  v.view.update(liveGraph([a, b]));
+  assert.equal(embed.active().el, other);
+  assert.equal(otherHandle.sessionId, 'other');
+  otherHandle.unmount();
+  v.host.classList.remove('hidden');
+  await settleVisibility();
+  assert.ok(v.q('.ibx-terminal').contains(sidebar));
+  v.view.unmount();
+  assert.equal(embed.owner(), null);
+  assert.equal(sidebar.parentElement, home);
+});

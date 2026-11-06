@@ -77,9 +77,12 @@ A message you send in the session does not close an agent request. If it
 answers the request, the agent withdraws the request. If the agent does not,
 dismiss it.
 
-You cannot approve a permission prompt from the list in this version. The item
-links to the session. You can also select **Show terminal here** to open the
-session's terminal in the list.
+Selecting an open permission prompt automatically shows the session's terminal
+in the detail pane, where you can allow or deny it. **Hide terminal** keeps it
+hidden for that selection; selecting another permission prompt opens its terminal
+by default. Other session statuses offer **Show terminal here**. **Open session**
+is always available, including when embedding is unavailable or the session is
+no longer running. Viewing a prompt never resumes a dormant session or answers it.
 
 ## How to work through the list
 

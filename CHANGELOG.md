@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Selecting an open permission prompt automatically shows its live session's
+  terminal in the visible detail pane. **Hide terminal** lasts for the current
+  selection. Other statuses keep their manual terminal toggle.
+
 ## 0.1.9
 
 ### Changed
