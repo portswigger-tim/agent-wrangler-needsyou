@@ -4,9 +4,11 @@
 
 ### Added
 
-- **Optional notes on every choice answer.** Add a note alongside any selected
-  option, including requests that require a fixed choice. A note alone still
-  requires the agent to allow a free-text answer.
+- **Text replies on every agent request.** Answer in your own words instead
+  of an offered option, or add an optional note to a selected choice.
+  **Use text only** clears a choice without losing your draft. Existing
+  requests also support text replies; `allow_free_text` is deprecated and
+  ignored, including when false.
 
 ## 0.1.10
 
