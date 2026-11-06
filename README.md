@@ -83,7 +83,7 @@ session's terminal in the list.
 
 Every agent request lets you answer in your own words instead of selecting
 an offered option. You can also add an optional note to your choice. Select
-**Use text only** to clear a choice while keeping your draft.
+**Clear** to clear a choice while keeping your draft.
 
 ## How to work through the list
 
