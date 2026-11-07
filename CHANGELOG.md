@@ -8,6 +8,10 @@
   waiting in either direction. Filter and presentation preferences are remembered
   per browser across reloads and Agent Wrangler restarts. Keyboard navigation
   follows the displayed order.
+- **Why a request was withdrawn.** `withdraw_human_request` now needs a
+  `reason`: one short sentence, such as "User answered in chat". The closed
+  request shows it after "withdrawn by agent", and `list_my_human_requests`
+  returns it as `resolvedNote`.
 
 ## 0.1.11
 

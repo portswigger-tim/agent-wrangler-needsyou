@@ -747,6 +747,23 @@ test('a dismissed agent item shows how it closed and no answer', () => {
   assert.equal(v.q('.ibx-d-readonly button'), null);
 });
 
+test('a withdrawn item shows the agent\'s reason after how it closed', () => {
+  const v = mountView();
+  const w = item({ title: 'Which DB?', state: 'resolved', resolvedReason: 'withdrawn', resolvedNote: 'User answered in chat', updatedAt: 19 * MIN });
+  const bare = item({ title: 'Old', state: 'resolved', resolvedReason: 'withdrawn', updatedAt: 18 * MIN });
+  v.view.update(graphOf([w, bare]));
+  v.filter('closed').click();
+  const [row, bareRow] = v.rows();
+  assert.equal(text(row.querySelector('.ibx-closed-reason')), 'withdrawn by agent');
+  assert.equal(row.querySelector('.ibx-closed-reason').getAttribute('title'), 'User answered in chat');
+  assert.equal(bareRow.querySelector('.ibx-closed-reason').getAttribute('title'), null);
+  v.view.select(w.id);
+  assert.equal(text(v.q('.ibx-d-closed-reason')), 'Closed: withdrawn by agent');
+  assert.equal(text(v.q('.ibx-d-closed-note')), 'User answered in chat');
+  v.view.select(bare.id);
+  assert.equal(v.q('.ibx-d-closed-note'), null, 'an older withdrawn item has no note');
+});
+
 test('a cleared status item shows its terminal text, read-only, with no terminal toggle', () => {
   const v = mountView();
   const s = statusItem({ state: 'resolved', resolvedReason: 'status-cleared', updatedAt: 18 * MIN });
