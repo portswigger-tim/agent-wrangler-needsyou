@@ -58,7 +58,11 @@ test('the input schemas are valid zod shapes that match the spec limits', () => 
     ask({ expires_in_minutes: 10081 }),
     ask({ urgency: 'low' }),
   ]) assert.equal(schema.safeParse(bad).success, false, JSON.stringify(bad).slice(0, 80));
-  assert.equal(z.object(inboxTools[1].inputSchema).safeParse({ id: 'ibx_1' }).success, true);
+  const withdrawSchema = z.object(inboxTools[1].inputSchema);
+  assert.equal(withdrawSchema.safeParse({ id: 'ibx_1', reason: 'User answered in chat' }).success, true);
+  for (const bad of [{ id: 'ibx_1' }, { id: 'ibx_1', reason: '' }, { id: 'ibx_1', reason: 'x'.repeat(201) }]) {
+    assert.equal(withdrawSchema.safeParse(bad).success, false, JSON.stringify(bad).slice(0, 80));
+  }
 });
 
 test('every tool refuses a caller with no session identity', async () => {
@@ -177,7 +181,7 @@ test('request_human_input: dedupe keys are per session, and a closed item does n
   assert.equal(store.get(theirs.structuredContent.id).dedupeKey, 'agent:s2:k');
   assert.equal(store.get(mine.structuredContent.id).title, 'Migrate in place or behind a copy?');
 
-  await withdraw.handler(as('s1'), { id: mine.structuredContent.id });
+  await withdraw.handler(as('s1'), { id: mine.structuredContent.id, reason: 'done' });
   const fresh = await request.handler(as('s1'), ask({ dedupe_key: 'k' }));
   assert.equal(fresh.structuredContent.updated, false);
   assert.notEqual(fresh.structuredContent.id, mine.structuredContent.id);
@@ -227,17 +231,30 @@ test('request_human_input: a cap refusal does not count towards the rate limit',
   const { request, withdraw, as } = setup({ settings: { maxOpenPerSession: 1 } });
   const first = await request.handler(as('s1'), ask());
   for (let i = 0; i < 4; i++) assert.match((await request.handler(as('s1'), ask())).content[0].text, /the limit is 1/);
-  await withdraw.handler(as('s1'), { id: first.structuredContent.id });
+  await withdraw.handler(as('s1'), { id: first.structuredContent.id, reason: 'done' });
   assert.equal((await request.handler(as('s1'), ask())).isError, undefined);
 });
 
 test('withdraw_human_request closes the caller\'s own open request', async () => {
   const { request, withdraw, as, store, calls } = setup();
   const { id } = (await request.handler(as('s1'), ask())).structuredContent;
-  const out = await withdraw.handler(as('s1'), { id });
-  assert.deepEqual(out.structuredContent, { id, state: 'resolved', resolvedReason: 'withdrawn' });
+  const out = await withdraw.handler(as('s1'), { id, reason: '  User answered\n in chat ' });
+  assert.deepEqual(out.structuredContent, { id, state: 'resolved', resolvedReason: 'withdrawn', resolvedNote: 'User answered in chat' });
   assert.equal(store.get(id).resolvedReason, 'withdrawn');
+  assert.equal(store.get(id).resolvedNote, 'User answered in chat');
   assert.equal(calls.rebuild, 2);
+});
+
+test('withdraw_human_request refuses a missing, blank or long reason and leaves the request open', async () => {
+  const { request, withdraw, as, store, calls } = setup();
+  const { id } = (await request.handler(as('s1'), ask())).structuredContent;
+  for (const reason of [undefined, '', '   ', 42, 'x'.repeat(201)]) {
+    const out = await withdraw.handler(as('s1'), { id, reason });
+    assert.equal(out.isError, true, String(reason));
+    assert.match(out.content[0].text, /reason/);
+  }
+  assert.equal(store.get(id).state, 'open');
+  assert.equal(calls.rebuild, 1);
 });
 
 test('withdraw_human_request also takes an answered request whose delivery failed', async () => {
@@ -245,7 +262,7 @@ test('withdraw_human_request also takes an answered request whose delivery faile
   const { id } = (await request.handler(as('s1'), ask({ options: [{ id: 'a', label: 'A' }] }))).structuredContent;
   store.answer(id, { optionId: 'a' });
   store.setDelivery(id, { delivery: 'failed', deliveryError: 'nope' });
-  const out = await withdraw.handler(as('s1'), { id });
+  const out = await withdraw.handler(as('s1'), { id, reason: 'done' });
   assert.equal(out.structuredContent.resolvedReason, 'withdrawn');
 });
 
@@ -254,15 +271,15 @@ test('withdraw_human_request refuses another session\'s, an unknown, a status an
   const { id } = (await request.handler(as('s2'), ask())).structuredContent;
   const status = store.create({ source: 'status', kind: 'blocked', sessionId: 's1', title: 'blocked', dedupeKey: 'status:s1:e1', status: { waitingFor: null, waitingReason: null, episode: 'e1' } });
   for (const bad of [id, 'ibx_nope', status.id, undefined, 42]) {
-    const out = await withdraw.handler(as('s1'), { id: bad });
+    const out = await withdraw.handler(as('s1'), { id: bad, reason: 'done' });
     assert.equal(out.isError, true);
     assert.equal(out.content[0].text, 'not your request');
   }
   assert.equal(store.get(id).state, 'open');
   assert.equal(store.get(status.id).state, 'open');
 
-  await withdraw.handler(as('s2'), { id });
-  const again = await withdraw.handler(as('s2'), { id });
+  await withdraw.handler(as('s2'), { id, reason: 'done' });
+  const again = await withdraw.handler(as('s2'), { id, reason: 'done' });
   assert.equal(again.isError, true);
   assert.match(again.content[0].text, /already closed \(withdrawn\)/);
 });
@@ -270,7 +287,7 @@ test('withdraw_human_request refuses another session\'s, an unknown, a status an
 test('list_my_human_requests lists only the caller\'s agent requests: open, answered and closed in the last 24 h', async () => {
   const { request, withdraw, list, as, store, now } = setup();
   const old = (await request.handler(as('s1'), ask({ title: 'old' }))).structuredContent.id;
-  await withdraw.handler(as('s1'), { id: old });
+  await withdraw.handler(as('s1'), { id: old, reason: 'done' });
   now.tick(RECENT_MS + 1);
   const recent = (await request.handler(as('s1'), ask({ title: 'recent', options: [{ id: 'a', label: 'A' }] }))).structuredContent.id;
   store.answer(recent, { optionId: 'a' });
@@ -279,14 +296,18 @@ test('list_my_human_requests lists only the caller\'s agent requests: open, answ
   store.answer(answered, { text: 'go' });
   const open = (await request.handler(as('s1'), ask({ title: 'open', kind: 'question' }))).structuredContent.id;
   await request.handler(as('s2'), ask({ title: 'not mine' }));
+  now.tick(10 * 60_000); // past the rate limit
+  const gone = (await request.handler(as('s1'), ask({ title: 'gone' }))).structuredContent.id;
+  await withdraw.handler(as('s1'), { id: gone, reason: 'User answered in chat' });
   store.create({ source: 'status', kind: 'blocked', sessionId: 's1', title: 'status', dedupeKey: 'status:s1:e1', status: { waitingFor: null, waitingReason: null, episode: 'e1' } });
 
   const out = await list.handler(as('s1'), {});
   assert.equal(out.isError, undefined);
   assert.deepEqual(out.structuredContent.requests, [
-    { id: open, kind: 'question', title: 'open', state: 'open', resolvedReason: null, answer: null },
-    { id: answered, kind: 'decision', title: 'answered', state: 'answered', resolvedReason: null, answer: { optionId: null, text: 'go' } },
-    { id: recent, kind: 'decision', title: 'recent', state: 'resolved', resolvedReason: 'delivered', answer: { optionId: 'a', text: null } },
+    { id: gone, kind: 'decision', title: 'gone', state: 'resolved', resolvedReason: 'withdrawn', resolvedNote: 'User answered in chat', answer: null },
+    { id: open, kind: 'question', title: 'open', state: 'open', resolvedReason: null, resolvedNote: null, answer: null },
+    { id: answered, kind: 'decision', title: 'answered', state: 'answered', resolvedReason: null, resolvedNote: null, answer: { optionId: null, text: 'go' } },
+    { id: recent, kind: 'decision', title: 'recent', state: 'resolved', resolvedReason: 'delivered', resolvedNote: null, answer: { optionId: 'a', text: null } },
   ]);
   assert.deepEqual(JSON.parse(out.content[0].text), out.structuredContent);
 });

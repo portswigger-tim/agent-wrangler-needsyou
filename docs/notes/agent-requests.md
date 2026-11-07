@@ -16,6 +16,12 @@ The non-obvious decisions behind `server/tools/`, `server/answer.js`,
 - **The result** is `structuredContent: { id, state, blocking, updated }` plus
   a lead line. A blocking request is told to end its turn. A non-blocking one
   is told to "carry on with work that does not depend on it".
+- **`withdraw_human_request` needs a `reason`.** Without one, a closed request
+  only said "withdrawn by agent", and the human couldn't tell whether they had
+  answered it or the agent had given up. The reason is stored as the item's
+  `resolvedNote` and shown after the closed label. It is required, not
+  optional, so agents can't skip it; an agent that calls with only an `id` gets
+  an error naming the missing `reason` and retries.
 - `list_my_human_requests` returns `{ requests: [...] }`, since
   structuredContent must be an object. It lists only the caller's agent items.
 - **The tool description is not how agents find the tool.** Agent Wrangler

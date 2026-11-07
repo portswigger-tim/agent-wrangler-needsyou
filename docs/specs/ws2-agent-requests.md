@@ -79,15 +79,17 @@ one bad example.
 
 ### `withdraw_human_request`
 
-`{ id: string }`. Only the caller's own open item, or an answered one whose delivery is not
-`delivered`. It resolves as
-`withdrawn` and returns `{ id, state }`. An unknown id or another session's item → error
-"not your request".
+`{ id: string, reason: string }`. Only the caller's own open item, or an answered one whose
+delivery is not `delivered`. It resolves as `withdrawn`, keeps `reason` (one short sentence,
+1..200 characters, such as "User answered in chat") as the item's `resolvedNote`, and returns
+`{ id, state, resolvedReason, resolvedNote }`. The view shows the note after "withdrawn by
+agent". An unknown id or another session's item → error "not your request". A missing or blank
+`reason` → error.
 
 ### `list_my_human_requests`
 
 No args. Returns the caller's open and answered items, plus items resolved in the last 24 h:
-`[{ id, kind, title, state, resolvedReason, answer: { optionId, text } | null }]`. This lets an agent
+`[{ id, kind, title, state, resolvedReason, resolvedNote, answer: { optionId, text } | null }]`. This lets an agent
 that missed the delivered text (compaction, restart) recover its answer.
 
 ## Answer handlers
