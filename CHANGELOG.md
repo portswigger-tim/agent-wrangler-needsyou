@@ -4,6 +4,10 @@
 
 ### Added
 
+- **New requests per ten minutes** setting: defaults to 3 new requests per
+  session, 0 turns the rate limit off, and 1–100 adjusts it. The open-request
+  cap still applies.
+
 - Group the Needs you list by task or visible type, and sort by type or time
   waiting in either direction. Filter and presentation preferences are remembered
   per browser across reloads and Agent Wrangler restarts. Keyboard navigation
