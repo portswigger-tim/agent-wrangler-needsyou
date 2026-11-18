@@ -34,16 +34,19 @@ and errors return `isError: true`. Call `await host.rebuild()` after every mutat
 ### `request_human_input`
 
 ```js
-inputSchema: {
-  kind: z.enum(['decision','approval','question','action']).describe(...),
-  title: z.string().min(1).max(120),
-  body: z.string().max(8000).optional(),          // markdown: context, trade-offs, what you recommend
-  options: z.array(z.object({ id, label: z.string().min(1).max(80), description: z.string().max(300).optional() })).max(6).optional(),
-  allow_free_text: z.boolean().optional(),
-  blocking: z.boolean().optional(),               // default true
-  urgency: z.enum(['normal','high']).optional(),
-  dedupe_key: z.string().max(120).optional(),
-  expires_in_minutes: z.number().int().min(5).max(10080).optional(),
+inputSchema: ({ host }) => {
+  const z = host.schema.z;
+  return {
+    kind: z.enum(['decision','approval','question','action']).describe(...),
+    title: z.string().min(1).max(120),
+    body: z.string().max(8000).optional(),          // markdown: context, trade-offs, what you recommend
+    options: z.array(z.object({ id, label: z.string().min(1).max(80), description: z.string().max(300).optional() })).max(6).optional(),
+    allow_free_text: z.boolean().optional(),
+    blocking: z.boolean().optional(),               // default true
+    urgency: z.enum(['normal','high']).optional(),
+    dedupe_key: z.string().max(120).optional(),
+    expires_in_minutes: z.number().int().min(5).max(10080).optional(),
+  };
 }
 ```
 

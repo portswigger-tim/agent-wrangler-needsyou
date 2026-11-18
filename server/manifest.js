@@ -23,7 +23,7 @@ export const SETTINGS = [
   { key: 'toastNotifications', type: 'toggle', label: 'Toast notifications', help: 'Show a toast for each new Needs you item, with a shortcut to view the request. Off unless turned on.' },
 ];
 
-export const REQUIRES = ['sessions:read', 'tasks:read', 'deliver', 'board:rebuild'];
+export const REQUIRES = ['sessions:read', 'tasks:read', 'deliver', 'board:rebuild', 'schema:zod'];
 
 export default {
   id: 'needsyou',
@@ -33,7 +33,7 @@ export default {
   author: 'PortSwigger',
   homepage: 'https://github.com/portswigger-tim/agent-wrangler-needsyou',
   defaultEnabled: true,
-  engines: { wranglerApi: '^1.57.0' },
+  engines: { wranglerApi: '^2.1.0' },
   dir,
   requires: REQUIRES,
   // The bag's `settings` is a read-through { get, all } view (host API 1.3.0),

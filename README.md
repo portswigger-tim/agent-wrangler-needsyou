@@ -18,7 +18,7 @@ other news never appear in it.
 
 ## Install the extension
 
-You need Agent Wrangler with host API `^1.57.0`. The current `main` has it.
+You need Agent Wrangler with host API `^2.1.0`. The current `main` has it.
 
 The repository is private for now. Agent Wrangler gets it with `git` and
 cannot ask you for a password. If the repository is private, do these steps
@@ -34,7 +34,7 @@ Then install the extension:
 3. Select **+ Add extension**.
 4. Select **Git URL**.
 5. Paste `https://github.com/portswigger-tim/agent-wrangler-needsyou.git`.
-6. Read the capabilities list. It shows four capabilities (see the table below).
+6. Read the capabilities list. It shows five capabilities (see the table below).
 7. Approve the install.
 8. If Agent Wrangler asks you to restart it, restart it.
 
@@ -52,6 +52,7 @@ The extension asks for these capabilities:
 | `tasks:read` | To show the task name next to an item |
 | `deliver` | To put your answer into the prompt of the session that asked |
 | `board:rebuild` | To update the board when the list changes |
+| `schema:zod` | To build the tools’ input schemas with Agent Wrangler’s Zod |
 
 ## What appears in "Needs you"
 

@@ -13,6 +13,12 @@
   request shows it after "withdrawn by agent", and `list_my_human_requests`
   returns it as `resolvedNote`.
 
+### Changed
+
+- Require Agent Wrangler host API `^2.1.0` and the additional `schema:zod`
+  capability to build tool schemas with the host’s Zod. The extension has no
+  runtime dependencies. Older hosts refuse this version at install or update.
+
 ## 0.1.11
 
 ### Added
