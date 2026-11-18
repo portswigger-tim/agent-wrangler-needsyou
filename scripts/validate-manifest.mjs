@@ -186,7 +186,6 @@ try {
   for (const tool of listed) {
     const expected = { ...expectedSchemas[tool.name] };
     const actual = { ...tool.inputSchema };
-    delete expected.$schema;
     delete actual.$schema;
     assert.deepEqual(actual, expected, `${tool.name} JSON Schema changed`);
   }

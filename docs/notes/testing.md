@@ -18,6 +18,10 @@ This page has two parts:
 | `scripts/validate-manifest.mjs` | Agent Wrangler's real loader accepts the extension and does not quarantine it (block it from loading). It registers the 3 tools, the 6 message handlers, the `needs-you` skill, the 4 settings, the 3 sweeps (timed jobs) and the client files. The tools work through Agent Wrangler's real MCP server: the tool list, one valid call, one invalid call and a refused helper session |
 | `scripts/boot-smoke.sh` | A real, temporary Agent Wrangler loads the extension. `scripts/dev-smoke.mjs` then tests every flow over the board's connection and `/mcp`, as a browser tab and an agent would |
 
+Schema-limit parsing and the no-session-parameter checks run in
+`validate-manifest.mjs` with `AW_REPO` set, using the host’s Zod. Plain
+`npm test` does not run those integration checks; CI’s test jobs do.
+
 `dev-smoke.mjs` checks these flows:
 
 - The extension is enabled and not quarantined. Its client files load.

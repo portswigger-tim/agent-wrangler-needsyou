@@ -1,6 +1,5 @@
 {
   "request_human_input": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
       "kind": {
@@ -87,7 +86,6 @@
     ]
   },
   "withdraw_human_request": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
       "id": {
@@ -109,7 +107,6 @@
     ]
   },
   "list_my_human_requests": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {}
   }
